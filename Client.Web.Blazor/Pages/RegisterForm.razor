@@ -1,0 +1,171 @@
+﻿@using static System.Net.WebRequestMethods
+@using Application.Dto
+@inject IHttpClientFactory HttpClientFactory
+
+<EditForm Model="registerModel" OnValidSubmit="HandleRegister">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="error">@registerModel.RegisterError</div>
+    <table>
+        <tr>
+            <td>
+                Login:
+            </td>
+            <td>
+                <InputText @bind-Value="registerModel.Username" />
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Email:
+            </td>
+            <td>
+                <InputText @bind-Value="registerModel.Email" type="email" />
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Password:
+            </td>
+            <td>
+                <InputText @bind-Value="registerModel.Password" type="password" />
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Confirm:
+            </td>
+            <td>
+                <InputText @bind-Value="registerModel.ConfirmPassword" type="password" />
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">√ Submit</button>
+                <button type="button" class="btn btn-primary" @onclick="CancelRegister" disabled="@(cts == null)">Cancel</button>
+            </td>
+        </tr>
+    </table>
+    <div class="success">@registerModel.RegisterSuccess</div>
+
+    <div class="separator" />
+    <p>
+        Have an account?
+        <br />
+        <a class="btn" href="#" @onclick="GoToLogin">→ Log in</a>
+    </p>
+</EditForm>
+
+@code {
+    [Parameter] public EventCallback OnRegisterSuccess { get; set; }
+    [Parameter] public EventCallback OnGoToLogin { get; set; }
+
+    private RegisterModel registerModel = new RegisterModel();
+    private HttpClient Http => HttpClientFactory.CreateClient("ServerAPI");
+    private CancellationTokenSource? cts = null;
+    private bool isSubmitting = false;
+
+    private async Task HandleRegister()
+    {
+        registerModel.RegisterSuccess = String.Empty;
+        registerModel.RegisterError = String.Empty;
+
+        if (string.IsNullOrWhiteSpace(registerModel.Username) || string.IsNullOrWhiteSpace(registerModel.Email)
+            || string.IsNullOrWhiteSpace(registerModel.Password) || string.IsNullOrWhiteSpace(registerModel.ConfirmPassword))
+        {
+            registerModel.RegisterError = "Все поля обязательны.";
+            return;
+        }
+        if (registerModel.Password != registerModel.ConfirmPassword)
+        {
+            registerModel.RegisterError = "Пароли не совпадают.";
+            return;
+        }
+
+        isSubmitting = true;
+        cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        try
+        {
+            await HttpRegister(cts.Token);
+        }
+        finally
+        {
+            isSubmitting = false;
+            if (cts != null)
+            {
+                cts.Dispose();
+                cts = null;
+            }
+        }
+    }
+
+    private async Task HttpRegister(CancellationToken ct)
+    {
+        var newUser = new CreateUserDto
+        {
+            Username = registerModel.Username,
+            Email = registerModel.Email,
+            Password = registerModel.Password
+        };
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/users/register", newUser, ct);
+            if (response.IsSuccessStatusCode)
+            {
+                registerModel.Clear();
+                registerModel.RegisterSuccess = "Регистрация успешна! Теперь вы можете войти.";
+
+                await OnRegisterSuccess.InvokeAsync();
+            }
+            else
+            {
+                string errorString = await response.Content.ReadAsStringAsync();
+                registerModel.RegisterError = $"Ошибка регистрации: {(int)response.StatusCode} - {errorString}";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            registerModel.RegisterSuccess = string.Empty;
+            if (cts != null && cts.IsCancellationRequested)
+                registerModel.RegisterError = "Регистрация отменена пользователем или истекло время ожидания.";
+            else
+                registerModel.RegisterError = "Регистрация отменена из-за ошибки сети.";
+        }
+        catch (Exception ex)
+        {
+            registerModel.RegisterError = $"Ошибка запроса: {ex.Message}";
+        }
+    }
+
+    private void CancelRegister()
+    {
+        if (cts != null && !cts.IsCancellationRequested)
+        {
+            cts.Cancel();
+        }
+    }
+
+    private void GoToLogin() => OnGoToLogin.InvokeAsync();
+
+    private class RegisterModel
+    {
+        public string Username { get; set; } = String.Empty;
+        public string Email { get; set; } = String.Empty;
+        public string Password { get; set; } = String.Empty;
+        public string ConfirmPassword { get; set; } = String.Empty;
+        public string RegisterError { get; set; } = String.Empty;
+        public string RegisterSuccess { get; set; } = String.Empty;
+
+        public void Clear()
+        {
+            Username = String.Empty;
+            Email = String.Empty;
+            Password = String.Empty;
+            ConfirmPassword = String.Empty;
+            RegisterError = String.Empty;
+            RegisterSuccess = String.Empty;
+        }
+    }
+}

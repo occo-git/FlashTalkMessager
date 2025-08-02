@@ -1,0 +1,197 @@
+﻿@using Client.Web.Blazor.Shared.Icons
+@using Client.Web.Blazor.Pages
+@using Application.Dto
+@inject IHttpClientFactory HttpClientFactory
+@inherits LayoutComponentBase
+
+<div class="messenger-layout">
+    <header class="header">
+        <button class="menu-btn" @onclick="ToggleSidebar">
+            &#9776;
+        </button>
+        <h1>FlashTalk Messenger</h1>
+    </header>
+
+    <div class="content">
+
+        <div class="@($"side-frame{(sidebarOpen ? " open" : "")}")">
+            <div class="side-frame-header">
+                <span><strong>Menu</strong></span>
+                <button class="close-btn" @onclick="ToggleSidebar">&times;</button>
+            </div>
+            <nav class="side-frame-nav">
+                @if (isAuthenticated)
+                {
+                    <a href="#" @onclick="() => SelectMenuItem(MenuItem.Profile)">
+                        <ProfileIcon />
+                        Profile
+                    </a>                
+                    <a href="#" @onclick="() => SelectMenuItem(MenuItem.Messages)">
+                        <MessageIcon />
+                        Chats
+                    </a>
+                    <a href="#" @onclick="() => SelectMenuItem(MenuItem.Settings)">
+                        <SettingsIcon />
+                        Settings
+                    </a>
+                    <a href="#" @onclick="() => SelectMenuItem(MenuItem.Logout)">
+                        <ExitIcon />
+                        Log Out
+                    </a>
+                }
+                else
+                {
+                    <a href="#" @onclick="() => SelectMenuItem(MenuItem.Login)">
+                        <ProfileIcon />
+                        Log In
+                    </a>
+                }
+            </nav>
+        </div>
+
+        <!-- затемнение фона при открытом меню -->
+        @if (sidebarOpen)
+        {
+            <div class="overlay" @onclick="ToggleSidebar"></div>
+        }
+
+
+        <aside class="sidebar">
+            <h3>@GetSidebarTitle()</h3>
+
+            @if (currentMenu == MenuItem.Messages)
+            {
+                <ul>
+                    @foreach (var chat in chats)
+                    {
+                        <li @onclick="() => SelectChat(chat)" class="@(selectedChat == chat ? "selected" : "")" style="cursor:pointer;">
+                            @chat.Username
+                        </li>
+                    }
+                </ul>
+            }
+        </aside>
+
+        <main class="main-content">
+            @RenderBody()
+        </main>
+
+    </div>
+
+    <footer class="footer">
+        &copy; 2025 FlashTalk
+    </footer>
+</div>
+
+@code {
+
+    private HttpClient Http => HttpClientFactory.CreateClient("ServerAPI");
+    private bool isAuthenticated = false;
+
+    #region Chats
+    private List<UserInfoDto> chats = new();
+    private UserInfoDto? selectedChat;
+
+    private async Task LoadChatsAsync()
+    {
+        var res = await Http.GetFromJsonAsync<List<UserInfoDto>>("api/Users/info");
+        if (res != null)
+            chats = res;
+    }
+
+    void SelectChat(UserInfoDto chat)
+    {
+        selectedChat = chat;
+    }
+    #endregion
+
+    #region Sidebar
+    private bool sidebarOpen = false;
+
+    void ToggleSidebar() => sidebarOpen = !sidebarOpen;
+
+    string GetSidebarTitle()
+    {
+        return currentMenu switch
+        {
+            MenuItem.Login => "Log In",
+            MenuItem.Register => "Registration",
+            MenuItem.Messages => "Chats",
+            MenuItem.Profile => "Profile",
+            MenuItem.Settings => "Settings",
+            MenuItem.Logout => "Log Out",
+            _ => ""
+        };
+    }
+    #endregion
+
+    #region Menu Items
+    private enum MenuItem
+    {
+        Welcome,
+        Profile,
+        Login,
+        Register,
+        Messages,
+        Settings,
+        Logout
+    }
+    private MenuItem currentMenu = MenuItem.Login;
+
+    private async Task SelectMenuItem(MenuItem menu)
+    {
+        currentMenu = menu;
+        sidebarOpen = false;
+        if (menu == MenuItem.Messages)
+        {
+            await LoadChatsAsync();
+        }
+        else
+        {
+            selectedChat = null;
+        }
+    }
+    #endregion
+
+
+    RenderFragment RenderBody() => currentMenu switch
+    {
+        MenuItem.Profile => @<UserProfile OnGoToLogin="OnGoToLogin" OnGoToRegister="OnGoToRegister" />,
+        MenuItem.Login => @<LoginForm OnLoginSuccess="OnLoginSuccess" OnGoToRegister="OnGoToRegister" />,
+        MenuItem.Register => @<RegisterForm OnRegisterSuccess="OnRegisterSuccess" OnGoToLogin="OnGoToLogin" />,
+        MenuItem.Messages => selectedChat is null ? @<SelectChat /> : @<ChatMessages ChatName="@selectedChat.Username" />,
+        MenuItem.Settings => @<Settings />,
+        MenuItem.Logout => @<LogoutForm OnLogoutSuccess="OnLogoutSuccess" />,
+        _ => @<Welcome />
+    };
+
+    async Task OnLoginSuccess()
+    {
+        isAuthenticated = true;
+        await Task.Delay(1000);
+        currentMenu = MenuItem.Profile;
+    }
+
+    void OnGoToRegister()
+    {
+        currentMenu = MenuItem.Register;
+    }
+
+    async Task OnRegisterSuccess()
+    {
+        await Task.Delay(1000);
+        currentMenu = MenuItem.Login;
+    }
+
+    void OnGoToLogin()
+    {
+        currentMenu = MenuItem.Login;
+    }
+
+    async Task OnLogoutSuccess()
+    {
+        isAuthenticated = false;
+        await Task.Delay(1000);
+        currentMenu = MenuItem.Login;
+    }
+}

@@ -1,0 +1,22 @@
+﻿@code {
+    [Parameter]
+    public string? ChatName { get; set; }
+
+    // Заглушка: список сообщений чата
+    private List<string> messages = new()
+    {
+        "Привет!",
+        "Как дела?",
+        "Что нового?",
+    };
+}
+
+<div>
+    <h2>Сообщения в чате: @ChatName</h2>
+    <ul>
+        @foreach (var msg in messages)
+        {
+            <li>@msg</li>
+        }
+    </ul>
+</div>

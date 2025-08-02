@@ -1,0 +1,144 @@
+﻿@using static System.Net.WebRequestMethods
+@using Application.Dto 
+@inject IHttpClientFactory HttpClientFactory
+
+<EditForm Model="loginModel" OnValidSubmit="@HandleLogin">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="error">@loginModel.LoginError</div>
+    <table>
+        <tr>
+            <td>
+                Login:
+            </td>
+            <td>
+                <InputText @bind-Value="loginModel.Username" />
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Password:
+            </td>
+            <td>
+                <InputText @bind-Value="loginModel.Password" />
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">√ Submit</button>
+                <button type="button" class="btn btn-primary" @onclick="CancelLogin" disabled="@(cts == null)">Cancel</button>
+            </td>
+        </tr>
+    </table>
+    <div class="success">@loginModel.LoginSuccess</div>
+
+    <div class="separator" />
+    <p>
+        No account? 
+        <br />
+        <a class="btn" href="#" @onclick="GoToRegister">→ Register</a>
+    </p>
+</EditForm>
+
+@code {
+    [Parameter] public EventCallback OnLoginSuccess { get; set; }
+    [Parameter] public EventCallback OnGoToRegister { get; set; }
+
+    private LoginModel loginModel = new LoginModel();
+    private HttpClient Http => HttpClientFactory.CreateClient("ServerAPI");
+    private CancellationTokenSource? cts = null;
+    private bool isSubmitting = false;
+
+    private async Task HandleLogin()
+    {       
+        loginModel.LoginSuccess = String.Empty;
+        loginModel.LoginError = String.Empty;
+
+        if (string.IsNullOrWhiteSpace(loginModel.Username) || string.IsNullOrWhiteSpace(loginModel.Password))
+        {
+            loginModel.LoginError = "Все поля обязательны.";
+            return;
+        }
+
+        isSubmitting = true;
+        cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        try
+        {
+            await HttpLogin(cts.Token);
+        }
+        finally
+        {
+            isSubmitting = false;
+            if (cts != null)
+            {
+                cts.Dispose();
+                cts = null;
+            }
+        }
+    }
+
+    private async Task HttpLogin(CancellationToken ct)
+    {
+        var loginUser = new LoginUserDto
+        {
+            Username = loginModel.Username,
+            Password = loginModel.Password
+        };
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/users/login", loginUser, ct);
+            if (response.IsSuccessStatusCode)
+            {
+                loginModel.Clear();
+                loginModel.LoginSuccess = "Успешный вход!";
+
+                await OnLoginSuccess.InvokeAsync();
+            }
+            else
+            {
+                string errorString = await response.Content.ReadAsStringAsync();
+                loginModel.LoginError = $"Ошибка входа: {(int)response.StatusCode} - {errorString}";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            loginModel.LoginSuccess = string.Empty;
+            if (cts != null && cts.IsCancellationRequested)
+                loginModel.LoginError = "Вход отменён пользователем или истекло время ожидания.";
+            else
+                loginModel.LoginError = "Вход отменён из-за ошибки сети.";
+        }
+        catch (Exception ex)
+        {
+            loginModel.LoginError = $"Ошибка запроса: {ex.Message}";
+        }
+    }
+
+    private void CancelLogin()
+    {
+        if (cts != null && !cts.IsCancellationRequested)
+        {
+            cts.Cancel();
+        }
+    }
+
+    private void GoToRegister() => OnGoToRegister.InvokeAsync();
+
+    private class LoginModel
+    {
+        public string Username { get; set; } = String.Empty;
+        public string Password { get; set; } = String.Empty;
+        public string LoginError { get; set; } = String.Empty;
+        public string LoginSuccess { get; set; } = String.Empty;
+
+        public void Clear()
+        {
+            Username = String.Empty;
+            Password = String.Empty;
+            LoginError = String.Empty;
+            LoginSuccess = String.Empty;
+        }
+    }
+}

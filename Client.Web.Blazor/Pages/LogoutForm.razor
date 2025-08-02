@@ -1,0 +1,82 @@
+﻿@using static System.Net.WebRequestMethods
+@using Application.Dto
+@inject IHttpClientFactory HttpClientFactory
+
+<div>
+    <p>Выйти из приложения?</p>
+    <button type="submit" class="btn btn-primary" @onclick="HandleLogout" disabled="@isSubmitting">√ Log out</button>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnLogoutSuccess { get; set; }
+
+    private LogoutModel logoutModel = new LogoutModel();
+    private HttpClient Http => HttpClientFactory.CreateClient("ServerAPI");
+    private CancellationTokenSource? cts = null;
+    private bool isSubmitting = false;
+
+    private async Task HandleLogout()
+    {
+        logoutModel.Clear();
+
+        isSubmitting = true;
+        cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        try
+        {
+            await HttpLogout(cts.Token);
+        }
+        finally
+        {
+            isSubmitting = false;
+            if (cts != null)
+            {
+                cts.Dispose();
+                cts = null;
+            }
+        }
+    }
+
+    private async Task HttpLogout(CancellationToken ct)
+    {
+        try
+        {
+            var response = await Http.PostAsync("api/users/logout", null, ct);
+            if (response.IsSuccessStatusCode)
+            {
+                logoutModel.LogoutSuccess = "Успешный выход!";
+                logoutModel.LogoutError = String.Empty;
+
+                await OnLogoutSuccess.InvokeAsync();
+            }
+            else
+            {
+                string errorString = await response.Content.ReadAsStringAsync();
+                logoutModel.LogoutError = $"Ошибка выхода: {(int)response.StatusCode} - {errorString}";
+                logoutModel.LogoutSuccess = String.Empty;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            if (cts != null && cts.IsCancellationRequested)
+                logoutModel.LogoutError = "Выход отменён пользователем или истекло время ожидания.";
+            else
+                logoutModel.LogoutError = "Выход отменён из-за ошибки сети.";
+        }
+        catch (Exception ex)
+        {
+            logoutModel.LogoutError = $"Ошибка запроса: {ex.Message}";
+        }
+    }
+
+    private class LogoutModel
+    {
+        public string LogoutError { get; set; } = String.Empty;
+        public string LogoutSuccess { get; set; } = String.Empty;
+
+        public void Clear()
+        {
+            LogoutError = String.Empty;
+            LogoutSuccess = String.Empty;
+        }
+    }
+}

@@ -1,0 +1,164 @@
+﻿using Application.Dto;
+using Application.Dto.Validation;
+using Application.Extentions;
+using Application.Mapping;
+using Application.Services.Contracts;
+using Domain.Models;
+using FluentValidation;
+using Infrastructure.Data;
+using Infrastructure.Repositories.Contracts;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using Shared.Configuration;
+using System;
+using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
+using System.Net;
+using System.Security.Claims;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Application.Services
+{
+    public class AuthenticationService : IAuthenticationService
+    {
+        private const int _refreshTokenExpirationDays = 7;
+        private const int _accessTokenExpirationMinutes = 5;
+
+        private readonly DataContext _context;
+        private readonly IRefreshTokenRepository _refreshTokenRepository;
+        private readonly ILogger<AuthenticationService> _logger;
+        private readonly IValidator<LoginUserDto> _loginValidator;
+        private readonly JwtValidationOptions _jwtOptions;
+
+        public AuthenticationService(
+            DataContext context,
+            IRefreshTokenRepository refreshTokenRepository,
+            IValidator<LoginUserDto> loginValidator,
+            IOptions<JwtValidationOptions> jwtOptions,
+            ILogger<AuthenticationService> logger) 
+        {
+            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _refreshTokenRepository = refreshTokenRepository ?? throw new ArgumentNullException(nameof(refreshTokenRepository));
+            _loginValidator = loginValidator ?? throw new ArgumentNullException(nameof(loginValidator));
+            if (jwtOptions == null || jwtOptions.Value == null)
+                throw new ArgumentNullException(nameof(jwtOptions));
+            _jwtOptions = jwtOptions.Value;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
+        public async Task<TokenResponseDto> Authenticate(LoginUserDto loginUserDto, CancellationToken ct)
+        {
+            await _loginValidator.ValidationCheck(loginUserDto);
+            _logger.LogInformation("Authenticate user: {Username}", loginUserDto.Username);
+
+            var user = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Username == loginUserDto.Username || u.Email == loginUserDto.Username, ct);
+            if (user == null || !UserMapper.CheckPassword(user, loginUserDto))
+                throw new UnauthorizedAccessException("Incorrect username or password.");
+
+            return await GenerateTokens(user, ct);
+        }
+
+        public async Task<TokenResponseDto> UpdateTokensAsync(string refreshToken, CancellationToken ct)
+        {
+            var existedToken = await _refreshTokenRepository.GetRefreshTokenAsync(refreshToken, ct);
+            if (existedToken == null || existedToken.ExpiresAt < DateTime.UtcNow || existedToken.Revoked)
+                throw new UnauthorizedAccessException("Invalid or expired refresh token.");
+
+            var user = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == existedToken.UserId, ct);
+            if (user == null)
+                throw new KeyNotFoundException("User not found.");
+
+            return await RefreshTokens(user, refreshToken, ct);
+        }
+
+        public async Task<int> RevokeRefreshTokensAsync(Guid userId, CancellationToken ct)
+        { 
+            return await _refreshTokenRepository.RevokeRefreshTokensByUserIdAsync(userId, ct);
+        }
+
+        #region Tokens      
+        private async Task<TokenResponseDto> GenerateTokens(User user, CancellationToken ct)
+        {
+            _logger.LogInformation("Generating tokens for user: {UserId}", user.Id);
+
+            var newRefreshToken = GenerateRefreshToken(user.Id);
+            var newAccessToken = GenerateAccessToken(user);
+
+            // Save refresh token
+            await _refreshTokenRepository.AddRefreshTokenAsync(newRefreshToken, ct);
+
+            return new TokenResponseDto(newAccessToken, newRefreshToken.Token);
+        }
+        private async Task<TokenResponseDto> RefreshTokens(User user, string refreshToken, CancellationToken ct)
+        {
+            _logger.LogInformation("Refreshing tokens for user: {UserId}", user.Id);
+
+            var newRefreshToken = GenerateRefreshToken(user.Id);
+            var newAccessToken = GenerateAccessToken(user);
+
+            await _refreshTokenRepository.UpdateRefreshTokenAsync(newRefreshToken, refreshToken, ct);
+
+            return new TokenResponseDto(newAccessToken, newRefreshToken.Token);
+        }
+
+        private string GenerateAccessToken(User user)
+        {
+            if (_jwtOptions.SigningKey == null)
+                throw new Exception("JWT Signing Key is not set");
+
+            var claims = UserMapper.GetClaims(user);
+
+            // Configure JWT
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SigningKey));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var expires = DateTime.UtcNow.AddMinutes(_accessTokenExpirationMinutes);
+
+            var jwt = new JwtSecurityToken(
+                issuer: null,
+                audience: null,
+                claims: claims,
+                expires: expires,
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(jwt);
+        }
+
+        private RefreshToken GenerateRefreshToken(Guid userId)
+        {
+            if (_jwtOptions.SigningKey == null)
+                throw new Exception("JWT Signing Key is not set");
+
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+                new Claim("type", "refresh")
+            };
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SigningKey));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var expires = DateTime.UtcNow.AddDays(_refreshTokenExpirationDays);
+
+            var token = new JwtSecurityToken(
+                issuer: null,
+                audience: null,
+                claims: claims,
+                expires: expires,
+                signingCredentials: creds
+            );
+
+            var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
+
+            return new RefreshToken(jwtToken, userId, expires, DateTime.UtcNow);
+        }
+        #endregion
+    }
+}
