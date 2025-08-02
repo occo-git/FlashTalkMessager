@@ -1,0 +1,138 @@
+﻿@using static System.Net.WebRequestMethods
+@using Application.Dto
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@inject IHttpClientFactory HttpClientFactory
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div>
+
+    @if (IsAuthenticated)
+    {
+        <div class="success">@profileModel.ProfileError</div>
+        <table>
+            <tr>
+                <td>
+                    Username:
+                </td>
+                <td>
+                    <div>@profileModel.Username</div>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Email:
+                </td>
+                <td>
+                    <div>@profileModel.Email</div>
+                </td>
+            </tr>
+        </table>
+    }
+    else
+    {
+        <div class="separator" />
+        <p>
+            No account?
+            <br />
+            <a class="btn" href="#" @onclick="GoToRegister">→ Register</a>
+        </p>
+        <p>
+            Have an account?
+            <br />
+            <a class="btn" href="#" @onclick="GoToLogin">→ Log in</a>
+        </p>
+    }
+
+</div>
+
+@code {
+    [Parameter] public EventCallback OnGoToLogin { get; set; }
+    [Parameter] public EventCallback OnGoToRegister { get; set; }
+
+    private bool IsAuthenticated;
+    private ProfileModel profileModel = new ProfileModel();
+    private HttpClient Http => HttpClientFactory.CreateClient("ServerAPI");
+    private CancellationTokenSource? cts = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetProfileInfo();
+    }
+
+    private async Task GetProfileInfo()
+    {
+        profileModel.Clear();
+        cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        try
+        {
+            await HttpProfileInfo(cts.Token);
+        }
+        finally
+        {
+            if (cts != null)
+            {
+                cts.Dispose();
+                cts = null;
+            }
+        }
+    }
+
+    private async Task HttpProfileInfo(CancellationToken ct)
+    {
+        IsAuthenticated = false;
+        try
+        {
+            var user = await Http.GetFromJsonAsync<UserInfoDto>("api/users/me", ct);
+
+            var response = await Http.GetAsync("api/users/me", ct);
+            if (response.IsSuccessStatusCode)
+            {
+                var profileData = await response.Content.ReadFromJsonAsync<UserInfoDto>(ct);
+                if (profileData != null)
+                {
+                    IsAuthenticated = true;
+                    profileModel.Username = profileData.Username;
+                    profileModel.Email = profileData.Email;
+                }
+                else
+                    profileModel.ProfileError = "Не удалось загрузить профиль.";
+            }
+            else
+            {
+                string errorString = await response.Content.ReadAsStringAsync();
+                profileModel.ProfileError = $"Ошибка загрузки профиля: {(int)response.StatusCode} - {errorString}";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            if (cts != null && cts.IsCancellationRequested)
+                profileModel.ProfileError = "Загрузка профиля отменена пользователем или истекло время ожидания.";
+            else
+                profileModel.ProfileError = "Загрузка профиля отменена из-за ошибки сети.";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при выполнении запроса: {ex.Message}");
+            profileModel.ProfileError = $"Ошибка запроса: {ex.Message}";
+        }
+    }
+
+    private void GoToLogin() => OnGoToLogin.InvokeAsync();
+
+    private void GoToRegister() => OnGoToRegister.InvokeAsync();
+
+    private class ProfileModel
+    {
+        public string Username { get; set; } = String.Empty;
+        public string Email { get; set; } = String.Empty;
+        public string ProfileError { get; set; } = String.Empty;
+
+        public void Clear()
+        {
+            Username = String.Empty;
+            Email = String.Empty;
+            ProfileError = String.Empty;
+        }
+    }
+}

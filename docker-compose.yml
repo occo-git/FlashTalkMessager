@@ -1,0 +1,62 @@
+﻿name: flashtalk
+
+services:      
+
+  flashtalk_db: 
+    image: postgres 
+    ports:
+      - "5432:5432"
+    networks:
+        - flashtalk_net1
+    environment: 
+      POSTGRES_USER: postgres 
+      POSTGRES_PASSWORD: postgres 
+      POSTGRES_DB: flashtalk_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 1s
+      retries: 5
+
+
+  flashtalk_api:
+    image: gatewayapi
+    build:
+      context: .
+      dockerfile: GatewayApi/Dockerfile
+    #command: ["migrate"] # flag to start the migration process
+    ports:
+      - "8080:8080"
+    networks:
+      - flashtalk_net1
+    environment:
+      - ConnectionStrings__FlashTalkConnectionString=${FLASHTALK_DB_CONNECTION_STRING} # connection string from .env or secrets
+      - ASPNETCORE_ENVIRONMENT=Development
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    depends_on:
+      flashtalk_db:
+        condition: service_healthy
+
+  flashtalk_client_web_blazor:
+    image: client.web.blazor
+    build:
+      context: .
+      dockerfile: Client.Web.Blazor/Dockerfile
+    ports:
+      - "5000:5000"
+    networks:
+      - flashtalk_net1
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    depends_on:
+      - flashtalk_api
+
+networks:
+  flashtalk_net1:
+    driver: bridge
+
+volumes:
+  postgres_data:
