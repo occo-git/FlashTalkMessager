@@ -26,4 +26,11 @@ RUN dotnet publish "./GatewayApi.csproj" -c $BUILD_CONFIGURATION -o /app/publish
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "GatewayApi.dll"]
+#ENTRYPOINT ["dotnet", "GatewayApi.dll"]
+
+USER root
+RUN apt-get update && apt-get install -y gosu # Install gosu for user switching
+COPY GatewayApi/entrypoint.sh /entrypoint.sh
+RUN sed -i -e '1s/^\xEF\xBB\xBF//' /entrypoint.sh # Remove BOM if present
+RUN chmod +x /entrypoint.sh # Make the entrypoint script executable
+ENTRYPOINT ["/entrypoint.sh"]

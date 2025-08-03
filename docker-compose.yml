@@ -27,7 +27,6 @@ services:
       context: .
       dockerfile: GatewayApi/Dockerfile
     #command: ["migrate"] # flag to start the migration process
-    command: sh -c "chown -R app:app /app/DataProtection-Keys && dotnet GatewayApi.dll"
     ports:
       - "8080:8080"
     networks:
