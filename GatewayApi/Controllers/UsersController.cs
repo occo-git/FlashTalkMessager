@@ -159,6 +159,7 @@ namespace GatewayApi.Controllers
         [AllowAnonymous]
         public async Task<ActionResult<TokenResponseDto>> UpdateTokens(CancellationToken ct)
         {
+            _logger.LogInformation("Update tokens request received");
             string? refreshToken = GetRefreshTokenFromCookie();
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
@@ -203,8 +204,16 @@ namespace GatewayApi.Controllers
             if (Guid.TryParse(id, out var userId))
             {
                 var user = await _userService.GetByIdAsync(userId, ct);
-                _logger.LogInformation("Found user: {@User}", user);
-                return Ok(user);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found: Id={id}", id);
+                    return NotFound("User not found");
+                }
+                else
+                {
+                    _logger.LogInformation("Found user: Id={id}, Username={username}", user.Id, user.Username);
+                    return Ok(user);
+                }
             }
             else
             {
