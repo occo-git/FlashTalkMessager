@@ -1,12 +1,11 @@
-﻿@using static System.Net.WebRequestMethods
-@using Application.Dto
-@inject IHttpClientFactory HttpClientFactory
+﻿@using Application.Dto
+@using Client.Web.Blazor.Services.Contracts
+@inject IApiClientService ApiClientService
 
 <EditForm Model="registerModel" OnValidSubmit="HandleRegister">
     <DataAnnotationsValidator />
     <ValidationSummary />
 
-    <div class="error">@registerModel.RegisterError</div>
     <table>
         <tr>
             <td>
@@ -47,7 +46,17 @@
             </td>
         </tr>
     </table>
-    <div class="success">@registerModel.RegisterSuccess</div>
+    @if (apiResult != null)
+    {
+        @if (apiResult.Success)
+        {
+            <div class="success">@apiResult.Message</div>
+        }
+        else 
+        { 
+            <div class="error">@apiResult.ErrorMessage</div> 
+        }
+    }
 
     <div class="separator" />
     <p>
@@ -61,25 +70,38 @@
     [Parameter] public EventCallback OnRegisterSuccess { get; set; }
     [Parameter] public EventCallback OnGoToLogin { get; set; }
 
+    private class RegisterModel
+    {
+        public string Username { get; set; } = String.Empty;
+        public string Email { get; set; } = String.Empty;
+        public string Password { get; set; } = String.Empty;
+        public string ConfirmPassword { get; set; } = String.Empty;
+
+        public void Clear()
+        {
+            Username = String.Empty;
+            Email = String.Empty;
+            Password = String.Empty;
+            ConfirmPassword = String.Empty;
+        }
+    }
     private RegisterModel registerModel = new RegisterModel();
-    private HttpClient Http => HttpClientFactory.CreateClient("ServerAPI");
+    private ApiResultDto? apiResult = null;
     private CancellationTokenSource? cts = null;
     private bool isSubmitting = false;
 
     private async Task HandleRegister()
     {
-        registerModel.RegisterSuccess = String.Empty;
-        registerModel.RegisterError = String.Empty;
-
+        apiResult = null;
         if (string.IsNullOrWhiteSpace(registerModel.Username) || string.IsNullOrWhiteSpace(registerModel.Email)
             || string.IsNullOrWhiteSpace(registerModel.Password) || string.IsNullOrWhiteSpace(registerModel.ConfirmPassword))
         {
-            registerModel.RegisterError = "Все поля обязательны.";
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = "All fields required." };
             return;
         }
         if (registerModel.Password != registerModel.ConfirmPassword)
         {
-            registerModel.RegisterError = "Пароли не совпадают.";
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = "Passwords don't match." };
             return;
         }
 
@@ -111,61 +133,38 @@
 
         try
         {
-            var response = await Http.PostAsJsonAsync("api/users/register", newUser, ct);
-            if (response.IsSuccessStatusCode)
+            apiResult = await ApiClientService.RegisterAsync(newUser, ct);
+            if (apiResult.Success)
             {
                 registerModel.Clear();
-                registerModel.RegisterSuccess = "Регистрация успешна! Теперь вы можете войти.";
-
                 await OnRegisterSuccess.InvokeAsync();
-            }
-            else
-            {
-                string errorString = await response.Content.ReadAsStringAsync();
-                registerModel.RegisterError = $"Ошибка регистрации: {(int)response.StatusCode} - {errorString}";
             }
         }
         catch (OperationCanceledException)
         {
-            registerModel.RegisterSuccess = string.Empty;
-            if (cts != null && cts.IsCancellationRequested)
-                registerModel.RegisterError = "Регистрация отменена пользователем или истекло время ожидания.";
-            else
-                registerModel.RegisterError = "Регистрация отменена из-за ошибки сети.";
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = "Request canceled." };
         }
         catch (Exception ex)
         {
-            registerModel.RegisterError = $"Ошибка запроса: {ex.Message}";
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = $"Error occured: {ex.Message}" };
         }
     }
 
+
     private void CancelRegister()
     {
-        if (cts != null && !cts.IsCancellationRequested)
+        if (cts != null)
         {
             cts.Cancel();
+            cts.Dispose();
+            cts = null;
         }
     }
 
     private void GoToLogin() => OnGoToLogin.InvokeAsync();
 
-    private class RegisterModel
+    public void Dispose()
     {
-        public string Username { get; set; } = String.Empty;
-        public string Email { get; set; } = String.Empty;
-        public string Password { get; set; } = String.Empty;
-        public string ConfirmPassword { get; set; } = String.Empty;
-        public string RegisterError { get; set; } = String.Empty;
-        public string RegisterSuccess { get; set; } = String.Empty;
-
-        public void Clear()
-        {
-            Username = String.Empty;
-            Email = String.Empty;
-            Password = String.Empty;
-            ConfirmPassword = String.Empty;
-            RegisterError = String.Empty;
-            RegisterSuccess = String.Empty;
-        }
+        CancelRegister();
     }
 }

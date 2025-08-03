@@ -1,8 +1,10 @@
 ﻿using GatewayApi.Services.Contracts;
+using Microsoft.Extensions.Options;
+using Shared.Configuration;
 
 namespace GatewayApi.Services
 {
-    public class CookieService : ICookieService
+    public class TokenCookieService : ITokenCookieService
     {
         private readonly IConfiguration _configuration;
 
@@ -11,35 +13,34 @@ namespace GatewayApi.Services
         private readonly string _refreshCookieName;
         private readonly CookieOptions _refreshTokenCookieOptions;
 
-        public CookieService(IConfiguration configuration)
+        public TokenCookieService(
+            IConfiguration configuration, 
+            IOptions<AccessTokenOptions> accessTokenOptions,
+            IOptions<RefreshTokenOptions> refreshTokenOptions)
         {
             _configuration = configuration;
 
-            // Access Token Cookie Settings
-            var atcs = _configuration.GetSection("CookieSettings:AccessToken");
-            _accessCookieName = atcs.GetValue<string>("Name") ?? "accessToken";
-            var expiresMinutes = atcs.GetValue<int>("ExpiresMinutes");
-            var accessSameSite = atcs.GetValue<SameSiteMode>("SameSite");
+            if (accessTokenOptions == null)
+                throw new ArgumentNullException("AccessTokenOptions cannot be null.");
+            if (refreshTokenOptions == null)
+                throw new ArgumentNullException("RefreshTokenOptions cannot be null.");
 
-            // Refresh Token Cookie Settings
-            var rtcs = _configuration.GetSection("CookieSettings:RefreshToken");
-            _refreshCookieName = rtcs.GetValue<string>("Name") ?? "accessToken";
-            var expiresDays = rtcs.GetValue<int>("ExpiresDays");
-            var refreshSameSite = rtcs.GetValue<SameSiteMode>("SameSite");
-
+            _accessCookieName = accessTokenOptions.Value.Name ?? "accessToken";
             _accessTokenCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
                 //Secure = atcs.GetValue<bool>("Secure"), // set to true in Production
-                SameSite = accessSameSite,
-                Expires = DateTime.UtcNow.AddMinutes(expiresMinutes)
+                SameSite = accessTokenOptions.Value.SameSite,
+                Expires = DateTime.UtcNow.AddMinutes(accessTokenOptions.Value.ExpiresMinutes)
             };
+
+            _refreshCookieName = refreshTokenOptions.Value.Name ?? "refreshToken";
             _refreshTokenCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
                 //Secure = rtcs.GetValue<bool>("Secure"), // set to true in Production
-                SameSite = accessSameSite,
-                Expires = DateTime.UtcNow.AddDays(expiresDays)
+                SameSite = refreshTokenOptions.Value.SameSite,
+                Expires = DateTime.UtcNow.AddDays(refreshTokenOptions.Value.ExpiresDays)
             };
         }
 
@@ -48,6 +49,12 @@ namespace GatewayApi.Services
 
         public void SetRefreshTokenCookie(HttpResponse response, string refreshToken) => 
             response.Cookies.Append(_refreshCookieName, refreshToken, _refreshTokenCookieOptions);
+
+        public string? GetAccessTokenCookie(HttpRequest request) =>
+            request.Cookies.TryGetValue(_accessCookieName, out var accessToken) ? accessToken : null;
+
+        public string? GetRefreshTokenCookie(HttpRequest request) =>
+            request.Cookies.TryGetValue(_refreshCookieName, out var refreshToken) ? refreshToken : null;
 
         public void DeleteAccessTokenCookie(HttpResponse response) =>
             response.Cookies.Delete(_accessCookieName, _accessTokenCookieOptions);

@@ -2,6 +2,7 @@
 using GatewayApi.Extensions;
 using GatewayApi.Middleware;
 using Infrastructure.Services.Contracts;
+using Microsoft.AspNetCore.DataProtection;
 using Shared.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,10 +37,17 @@ builder.Services.AddDataContext(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddValidators(); // FluentValidation registration
 builder.Services.AddInfrastructureServices(); // Infrastructure services registration
-builder.Services.AddCookieService(); // Cookie service registration
+builder.Services.AddTokenCookieService(builder.Configuration); // Token cookie service registration
 builder.Services.AddJwtAuthentication(builder.Configuration); // JWT authentication registration
 builder.Services.AddEndpointsApiExplorer(); // Swagger/OpenAPI
 builder.Services.AddSwaggerGen(); // SwaggerGen
+#endregion
+#region
+// Data Protection:  Use file system for key storage
+var keysFolder = new DirectoryInfo("/app/DataProtection-Keys");
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(keysFolder)
+    .SetApplicationName("FlashTalkMessager");
 #endregion
 
 var app = builder.Build();

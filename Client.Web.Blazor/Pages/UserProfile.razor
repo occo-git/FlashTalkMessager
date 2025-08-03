@@ -1,22 +1,18 @@
-﻿@using static System.Net.WebRequestMethods
-@using Application.Dto
-@using Microsoft.AspNetCore.Components.Authorization
-@using System.Security.Claims
-@inject IHttpClientFactory HttpClientFactory
-@inject AuthenticationStateProvider AuthenticationStateProvider
+﻿@using Application.Dto
+@using Client.Web.Blazor.Services.Contracts
+@inject IApiClientService ApiClientService
 
 <div>
 
-    @if (IsAuthenticated)
+    @if (userInfoDto != null)
     {
-        <div class="success">@profileModel.ProfileError</div>
         <table>
             <tr>
                 <td>
                     Username:
                 </td>
                 <td>
-                    <div>@profileModel.Username</div>
+                    <div>@userInfoDto.Username</div>
                 </td>
             </tr>
             <tr>
@@ -24,23 +20,30 @@
                     Email:
                 </td>
                 <td>
-                    <div>@profileModel.Email</div>
+                    <div>@userInfoDto.Email</div>
                 </td>
             </tr>
         </table>
+        @if (apiResult != null)
+        {
+            @if (!apiResult.Success)
+            {
+                <div class="error">@apiResult.ErrorMessage</div>
+            }
+        }
     }
     else
     {
         <div class="separator" />
         <p>
-            No account?
-            <br />
-            <a class="btn" href="#" @onclick="GoToRegister">→ Register</a>
-        </p>
-        <p>
             Have an account?
             <br />
             <a class="btn" href="#" @onclick="GoToLogin">→ Log in</a>
+        </p>
+        <p>
+            No account?
+            <br />
+            <a class="btn" href="#" @onclick="GoToRegister">→ Register</a>
         </p>
     }
 
@@ -50,10 +53,10 @@
     [Parameter] public EventCallback OnGoToLogin { get; set; }
     [Parameter] public EventCallback OnGoToRegister { get; set; }
 
-    private bool IsAuthenticated;
-    private ProfileModel profileModel = new ProfileModel();
-    private HttpClient Http => HttpClientFactory.CreateClient("ServerAPI");
+    private UserInfoDto? userInfoDto = null;
+    private ApiResultDto? apiResult = null;
     private CancellationTokenSource? cts = null;
+    private bool isAuthenticated;
 
     protected override async Task OnInitializedAsync()
     {
@@ -62,7 +65,9 @@
 
     private async Task GetProfileInfo()
     {
-        profileModel.Clear();
+        userInfoDto = null;
+        apiResult = null;
+
         cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         try
         {
@@ -80,41 +85,19 @@
 
     private async Task HttpProfileInfo(CancellationToken ct)
     {
-        IsAuthenticated = false;
         try
         {
-            var user = await Http.GetFromJsonAsync<UserInfoDto>("api/users/me", ct);
-
-            var response = await Http.GetAsync("api/users/me", ct);
-            if (response.IsSuccessStatusCode)
-            {
-                var profileData = await response.Content.ReadFromJsonAsync<UserInfoDto>(ct);
-                if (profileData != null)
-                {
-                    IsAuthenticated = true;
-                    profileModel.Username = profileData.Username;
-                    profileModel.Email = profileData.Email;
-                }
-                else
-                    profileModel.ProfileError = "Не удалось загрузить профиль.";
-            }
-            else
-            {
-                string errorString = await response.Content.ReadAsStringAsync();
-                profileModel.ProfileError = $"Ошибка загрузки профиля: {(int)response.StatusCode} - {errorString}";
-            }
+            userInfoDto = await ApiClientService.GetCurrentUserInfoAsync(ct);
+            if (userInfoDto != null)
+                apiResult = new ApiResultDto { Success = true };
         }
         catch (OperationCanceledException)
         {
-            if (cts != null && cts.IsCancellationRequested)
-                profileModel.ProfileError = "Загрузка профиля отменена пользователем или истекло время ожидания.";
-            else
-                profileModel.ProfileError = "Загрузка профиля отменена из-за ошибки сети.";
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = "Request canceled." };
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Ошибка при выполнении запроса: {ex.Message}");
-            profileModel.ProfileError = $"Ошибка запроса: {ex.Message}";
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = $"Error occured: {ex.Message}" };
         }
     }
 
@@ -122,17 +105,9 @@
 
     private void GoToRegister() => OnGoToRegister.InvokeAsync();
 
-    private class ProfileModel
+    public void Dispose()
     {
-        public string Username { get; set; } = String.Empty;
-        public string Email { get; set; } = String.Empty;
-        public string ProfileError { get; set; } = String.Empty;
-
-        public void Clear()
-        {
-            Username = String.Empty;
-            Email = String.Empty;
-            ProfileError = String.Empty;
-        }
+        cts?.Cancel();
+        cts?.Dispose();
     }
 }

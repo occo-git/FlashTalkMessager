@@ -25,28 +25,39 @@ namespace Application.Services
 {
     public class AuthenticationService : IAuthenticationService
     {
-        private const int _refreshTokenExpirationDays = 7;
-        private const int _accessTokenExpirationMinutes = 5;
-
         private readonly DataContext _context;
         private readonly IRefreshTokenRepository _refreshTokenRepository;
-        private readonly ILogger<AuthenticationService> _logger;
         private readonly IValidator<LoginUserDto> _loginValidator;
         private readonly JwtValidationOptions _jwtOptions;
+        private readonly int _accessTokenExpirationMinutes = 15;
+        private readonly int _refreshTokenExpirationDays = 7;
+        private readonly ILogger<AuthenticationService> _logger;
 
         public AuthenticationService(
             DataContext context,
             IRefreshTokenRepository refreshTokenRepository,
             IValidator<LoginUserDto> loginValidator,
             IOptions<JwtValidationOptions> jwtOptions,
-            ILogger<AuthenticationService> logger) 
+            IOptions<AccessTokenOptions> accessTokenOptions,
+            IOptions<RefreshTokenOptions> refreshTokenOptions,
+            ILogger<AuthenticationService> logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _refreshTokenRepository = refreshTokenRepository ?? throw new ArgumentNullException(nameof(refreshTokenRepository));
             _loginValidator = loginValidator ?? throw new ArgumentNullException(nameof(loginValidator));
+            
             if (jwtOptions == null || jwtOptions.Value == null)
                 throw new ArgumentNullException(nameof(jwtOptions));
             _jwtOptions = jwtOptions.Value;
+
+            if (accessTokenOptions == null || accessTokenOptions.Value == null)
+                throw new ArgumentNullException(nameof(accessTokenOptions));
+            _accessTokenExpirationMinutes = accessTokenOptions.Value.ExpiresMinutes;
+            
+            if (refreshTokenOptions == null || refreshTokenOptions.Value == null)
+                throw new ArgumentNullException(nameof(refreshTokenOptions));
+            _refreshTokenExpirationDays = refreshTokenOptions.Value.ExpiresDays;
+            
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -76,7 +87,7 @@ namespace Application.Services
             if (user == null)
                 throw new KeyNotFoundException("User not found.");
 
-            return await RefreshTokens(user, refreshToken, ct);
+            return await UpdateTokens(user, refreshToken, ct);
         }
 
         public async Task<int> RevokeRefreshTokensAsync(Guid userId, CancellationToken ct)
@@ -92,12 +103,11 @@ namespace Application.Services
             var newRefreshToken = GenerateRefreshToken(user.Id);
             var newAccessToken = GenerateAccessToken(user);
 
-            // Save refresh token
             await _refreshTokenRepository.AddRefreshTokenAsync(newRefreshToken, ct);
 
             return new TokenResponseDto(newAccessToken, newRefreshToken.Token);
         }
-        private async Task<TokenResponseDto> RefreshTokens(User user, string refreshToken, CancellationToken ct)
+        private async Task<TokenResponseDto> UpdateTokens(User user, string refreshToken, CancellationToken ct)
         {
             _logger.LogInformation("Refreshing tokens for user: {UserId}", user.Id);
 

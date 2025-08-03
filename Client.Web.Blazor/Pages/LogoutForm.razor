@@ -1,23 +1,33 @@
-﻿@using static System.Net.WebRequestMethods
-@using Application.Dto
-@inject IHttpClientFactory HttpClientFactory
+﻿@using Application.Dto
+@using Client.Web.Blazor.Services.Contracts
+@inject IApiClientService ApiClientService
 
 <div>
-    <p>Выйти из приложения?</p>
+    <p>Do you realy want to log out?</p>
     <button type="submit" class="btn btn-primary" @onclick="HandleLogout" disabled="@isSubmitting">√ Log out</button>
+    @if (apiResult != null)
+    {
+        @if (apiResult.Success)
+        {
+            <div class="success">@apiResult.Message</div>
+        }
+        else
+        {
+            <div class="error">@apiResult.ErrorMessage</div>
+        }
+    }
 </div>
 
 @code {
     [Parameter] public EventCallback OnLogoutSuccess { get; set; }
 
-    private LogoutModel logoutModel = new LogoutModel();
-    private HttpClient Http => HttpClientFactory.CreateClient("ServerAPI");
+    private ApiResultDto? apiResult = null;
     private CancellationTokenSource? cts = null;
     private bool isSubmitting = false;
 
     private async Task HandleLogout()
     {
-        logoutModel.Clear();
+        apiResult = null;
 
         isSubmitting = true;
         cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -40,43 +50,34 @@
     {
         try
         {
-            var response = await Http.PostAsync("api/users/logout", null, ct);
-            if (response.IsSuccessStatusCode)
+            apiResult = await ApiClientService.LogoutAsync(ct);
+            if (apiResult.Success)
             {
-                logoutModel.LogoutSuccess = "Успешный выход!";
-                logoutModel.LogoutError = String.Empty;
-
                 await OnLogoutSuccess.InvokeAsync();
-            }
-            else
-            {
-                string errorString = await response.Content.ReadAsStringAsync();
-                logoutModel.LogoutError = $"Ошибка выхода: {(int)response.StatusCode} - {errorString}";
-                logoutModel.LogoutSuccess = String.Empty;
             }
         }
         catch (OperationCanceledException)
         {
-            if (cts != null && cts.IsCancellationRequested)
-                logoutModel.LogoutError = "Выход отменён пользователем или истекло время ожидания.";
-            else
-                logoutModel.LogoutError = "Выход отменён из-за ошибки сети.";
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = "Request canceled." };
         }
         catch (Exception ex)
         {
-            logoutModel.LogoutError = $"Ошибка запроса: {ex.Message}";
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = $"Error occured: {ex.Message}" };
         }
     }
 
-    private class LogoutModel
+    private void CancelLogout()
     {
-        public string LogoutError { get; set; } = String.Empty;
-        public string LogoutSuccess { get; set; } = String.Empty;
-
-        public void Clear()
+        if (cts != null)
         {
-            LogoutError = String.Empty;
-            LogoutSuccess = String.Empty;
+            cts.Cancel();
+            cts.Dispose();
+            cts = null;
         }
+    }
+
+    public void Dispose()
+    {
+        CancelLogout();
     }
 }

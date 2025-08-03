@@ -8,6 +8,7 @@ using Infrastructure.Repositories.Contracts;
 using Infrastructure.Services;
 using Infrastructure.Services.Contracts;
 using Microsoft.EntityFrameworkCore;
+using Shared.Configuration;
 
 namespace GatewayApi.Extensions
 {
@@ -35,9 +36,11 @@ namespace GatewayApi.Extensions
             return services;
         }
 
-        public static IServiceCollection AddCookieService(this IServiceCollection services)
+        public static IServiceCollection AddTokenCookieService(this IServiceCollection services, IConfiguration configuration)
         {
-            services.AddSingleton<ICookieService, CookieService>();
+            services.Configure<AccessTokenOptions>(configuration.GetSection("AccessTokenOptions"));
+            services.Configure<RefreshTokenOptions>(configuration.GetSection("RefreshTokenOptions"));
+            services.AddSingleton<ITokenCookieService, TokenCookieService>();
             return services;
         }
     }
