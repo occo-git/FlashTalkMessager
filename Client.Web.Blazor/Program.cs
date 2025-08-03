@@ -1,18 +1,37 @@
 using Client.Web.Blazor.Services;
 using Client.Web.Blazor.Services.Contracts;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Shared.Extensions;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
+#region Logging
+builder.Logging.ClearProviders();
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.SingleLine = true;
+    options.TimestampFormat = "yyyy-MM-dd HH:mm:ss.fff UTC ";
+    options.UseUtcTimestamp = true;
+    options.ColorBehavior = Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Enabled;
+    options.IncludeScopes = false;
+});
+#endregion
+
+#region Registration
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
-
 builder.Services.AddJwtAuthentication(builder.Configuration); // Register JWT authentication from Shared.Extensions
+builder.Services.AddHttpClient<IApiClientService, ApiClientService>(client => client.BaseAddress = new Uri("http://flashtalk_api:8080/")); // Add HttpClient for API calls
+#endregion
 
-// Add HttpClient for API calls
-builder.Services.AddHttpClient<IApiClientService, ApiClientService>(client => client.BaseAddress = new Uri("http://flashtalk_api:8080/"));
+#region Data Protection
+var keysFolder = new DirectoryInfo("/app/DataProtection-Keys");
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(keysFolder)
+    .SetApplicationName("FlashTalkMessager");
+#endregion
 
 builder.WebHost.ConfigureKestrel(opts =>
 {

@@ -2,6 +2,7 @@
 
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+USER app
 WORKDIR /app
 EXPOSE 80
 
@@ -25,4 +26,10 @@ RUN dotnet publish "./Client.Web.Blazor.csproj" -c $BUILD_CONFIGURATION -o /app/
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "Client.Web.Blazor.dll"]
+
+USER root
+RUN apt-get update && apt-get install -y gosu # Install gosu for user switching
+COPY Client.Web.Blazor/entrypoint.sh /entrypoint.sh
+RUN sed -i -e '1s/^\xEF\xBB\xBF//' /entrypoint.sh # Remove BOM if present
+RUN chmod +x /entrypoint.sh # Make the entrypoint script executable
+ENTRYPOINT ["/entrypoint.sh"]

@@ -7,6 +7,18 @@ using Shared.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+#region Logging
+builder.Logging.ClearProviders();
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.SingleLine = true;
+    options.TimestampFormat = "yyyy-MM-dd HH:mm:ss.fff UTC";
+    options.UseUtcTimestamp = true;
+    options.ColorBehavior = Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Enabled;    
+    options.IncludeScopes = false;
+});
+#endregion
+
 #region CORS
 builder.Services.AddCors(options =>
 {
@@ -42,8 +54,8 @@ builder.Services.AddJwtAuthentication(builder.Configuration); // JWT authenticat
 builder.Services.AddEndpointsApiExplorer(); // Swagger/OpenAPI
 builder.Services.AddSwaggerGen(); // SwaggerGen
 #endregion
-#region
-// Data Protection:  Use file system for key storage
+
+#region Data Protection
 var keysFolder = new DirectoryInfo("/app/DataProtection-Keys");
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(keysFolder)
