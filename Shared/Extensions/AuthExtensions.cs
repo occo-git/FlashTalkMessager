@@ -30,9 +30,11 @@ namespace Shared.Extensions
                     options.ValidateLifetime = jwtValidationOptions.ValidateLifetime;
                     options.SigningKey = skVal;
                     options.ValidateIssuerSigningKey = jwtValidationOptions.ValidateIssuerSigningKey;
+                    options.AccessTokenName = jwtValidationOptions.AccessTokenName;
                 });
 
             jwtValidationOptions.SigningKey = skVal;
+            string accessTokenName = jwtValidationOptions.AccessTokenName ?? "accessToken";
 
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
@@ -42,8 +44,8 @@ namespace Shared.Extensions
                         OnMessageReceived = context =>
                         {
                             // cookie-based token retrieval
-                            if (context.Request.Cookies.ContainsKey("accessToken"))
-                                context.Token = context.Request.Cookies["accessToken"];
+                            if (context.Request.Cookies.ContainsKey(accessTokenName))
+                                context.Token = context.Request.Cookies[accessTokenName];
                             
                             return Task.CompletedTask;
                         }

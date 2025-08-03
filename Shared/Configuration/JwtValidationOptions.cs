@@ -13,5 +13,6 @@ namespace Shared.Configuration
         public bool ValidateLifetime { get; set; }
         public bool ValidateIssuerSigningKey { get; set; }
         public string? SigningKey { get; set; }
+        public string? AccessTokenName { get; set; }
     }
 }

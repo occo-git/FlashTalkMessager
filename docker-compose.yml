@@ -27,6 +27,7 @@ services:
       context: .
       dockerfile: GatewayApi/Dockerfile
     #command: ["migrate"] # flag to start the migration process
+    command: sh -c "chown -R app:app /app/DataProtection-Keys && dotnet GatewayApi.dll"
     ports:
       - "8080:8080"
     networks:
@@ -35,6 +36,8 @@ services:
       - ConnectionStrings__FlashTalkConnectionString=${FLASHTALK_DB_CONNECTION_STRING} # connection string from .env or secrets
       - ASPNETCORE_ENVIRONMENT=Development
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    volumes:
+      - data-protection-keys:/app/DataProtection-Keys
     depends_on:
       flashtalk_db:
         condition: service_healthy
@@ -60,3 +63,4 @@ networks:
 
 volumes:
   postgres_data:
+  data-protection-keys:

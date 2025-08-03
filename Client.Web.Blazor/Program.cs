@@ -1,4 +1,8 @@
+using Client.Web.Blazor.Services;
+using Client.Web.Blazor.Services.Contracts;
+using Microsoft.AspNetCore.Components.Authorization;
 using Shared.Extensions;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,8 +12,7 @@ builder.Services.AddServerSideBlazor();
 builder.Services.AddJwtAuthentication(builder.Configuration); // Register JWT authentication from Shared.Extensions
 
 // Add HttpClient for API calls
-builder.Services.AddHttpClient("ServerAPI", client => client.BaseAddress = new Uri("http://flashtalk_api:8080/"));
-builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("ServerAPI"));
+builder.Services.AddHttpClient<IApiClientService, ApiClientService>(client => client.BaseAddress = new Uri("http://flashtalk_api:8080/"));
 
 builder.WebHost.ConfigureKestrel(opts =>
 {

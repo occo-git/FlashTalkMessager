@@ -20,18 +20,18 @@ namespace GatewayApi.Controllers
     {
         private readonly IUserService _userService;
         private readonly IAuthenticationService _authenticationService;
-        private readonly ICookieService _cookieService;
+        private readonly ITokenCookieService _tokenCookieService;
         private readonly ILogger<UsersController> _logger;
 
         public UsersController(
             IUserService userService, 
             IAuthenticationService authenticationService,
-            ICookieService cookieService,
+            ITokenCookieService tokenCookieService,
             ILogger<UsersController> logger)
         {
             _userService = userService;
             _authenticationService = authenticationService;
-            _cookieService = cookieService;
+            _tokenCookieService = tokenCookieService;
             _logger = logger;
         }
 
@@ -98,7 +98,7 @@ namespace GatewayApi.Controllers
 
             await validator.ValidationCheck(user);
 
-            Console.WriteLine($"Creating user: {user.Username}");
+            _logger.LogInformation("Creating user: {Username}", user.Username);
             User newUser = UserMapper.ToDomain(user);
             var createdUser = await _userService.CreateAsync(newUser, ct);
 
@@ -132,39 +132,51 @@ namespace GatewayApi.Controllers
 
             SetTokenCookies(tokenResponse);
 
-            _logger.LogInformation("User authenticated: Username={Username} Tokens={@TokenResponse}", user.Username, tokenResponse);
-
+            _logger.LogInformation("User authenticated: Username={Username}", user.Username);
             return Ok(tokenResponse);
         }
 
+        [HttpGet("is-authenticated")]
+        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        public IActionResult IsAuthenticated(CancellationToken ct)
+        {
+            var user = HttpContext.User;
+            if (user?.Identity != null && user.Identity.IsAuthenticated)
+                return Ok(true);
+            
+            return Ok(false);
+        }
 
         /// <summary>
         /// Updates the JWT tokens using a refresh token
         /// </summary>
         /// <remarks>
-        /// GET: api/users/refresh
+        /// GET: api/users/update-tokens
         /// This endpoint is open to anonymous users.
         /// </remarks>
         /// <returns>JWT tokens for the authenticated user.</returns>
-        [HttpPost("refresh")]
+        [HttpPost("update-tokens")]
         [AllowAnonymous]
         public async Task<ActionResult<TokenResponseDto>> UpdateTokens(CancellationToken ct)
         {
-            // Get the refresh token from the header 
-            if (!Request.Headers.TryGetValue("Refresh-Token", out var refreshTokenHeader))
-                return BadRequest("Refresh token is required.");
-
-            var refreshToken = refreshTokenHeader.ToString();
+            string? refreshToken = GetRefreshTokenFromCookie();
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
-                _logger.LogError("Refresh token cannot be null or empty");
-                return BadRequest("Refresh token cannot be null or empty");
+                _logger.LogError("Refresh token cookie is missing or empty");
+                return BadRequest("Refresh token is required.");
             }
 
-            _logger.LogInformation("Update tokens: {refreshToken}", refreshToken);
+            _logger.LogInformation("Update tokens");
             var tokenResponse = await _authenticationService.UpdateTokensAsync(refreshToken, ct);
-            _logger.LogInformation("Updated tokens: Tokens={@TokenResponse}", tokenResponse);
+            if (tokenResponse == null)
+            {
+                _logger.LogWarning("Failed to update tokens");
+                return Unauthorized("Invalid or expired refresh token.");
+            }
 
+            SetTokenCookies(tokenResponse);
+
+            _logger.LogInformation("Updated tokens");
             return Ok(tokenResponse);
         }
 
@@ -178,7 +190,7 @@ namespace GatewayApi.Controllers
         /// <returns>The user information.</returns>
         [HttpGet("me")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-        public async Task<ActionResult<UserInfoDto>> GetUser(CancellationToken ct)
+        public async Task<ActionResult<UserInfoDto>> GetLoggedUser(CancellationToken ct)
         {
             var id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (id == null)
@@ -237,14 +249,19 @@ namespace GatewayApi.Controllers
         #region Cookie Management
         private void SetTokenCookies(TokenResponseDto tokenResponse)
         {
-            _cookieService.SetAccessTokenCookie(Response, tokenResponse.AccessToken);
-            _cookieService.SetRefreshTokenCookie(Response, tokenResponse.RefreshToken);
+            _tokenCookieService.SetAccessTokenCookie(Response, tokenResponse.AccessToken);
+            _tokenCookieService.SetRefreshTokenCookie(Response, tokenResponse.RefreshToken);
+        }
+
+        private string? GetRefreshTokenFromCookie()
+        {
+            return _tokenCookieService.GetRefreshTokenCookie(Request);
         }
 
         private void DeleteTokenCookies()
         {
-            _cookieService.DeleteAccessTokenCookie(Response);
-            _cookieService.DeleteRefreshTokenCookie(Response);
+            _tokenCookieService.DeleteAccessTokenCookie(Response);
+            _tokenCookieService.DeleteRefreshTokenCookie(Response);
         }
         #endregion
     }
