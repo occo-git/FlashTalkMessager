@@ -30,8 +30,11 @@ namespace Application.Services
         private readonly IValidator<LoginUserDto> _loginValidator;
         private readonly JwtValidationOptions _jwtOptions;
         private readonly int _accessTokenExpirationMinutes = 15;
+        private readonly int _accessTokenMinutesBeforeExpiration = 3;
         private readonly int _refreshTokenExpirationDays = 7;
         private readonly ILogger<AuthenticationService> _logger;
+
+        public int AccessTokenMinutesBeforeExpiration => _accessTokenMinutesBeforeExpiration;
 
         public AuthenticationService(
             DataContext context,
@@ -45,7 +48,7 @@ namespace Application.Services
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _refreshTokenRepository = refreshTokenRepository ?? throw new ArgumentNullException(nameof(refreshTokenRepository));
             _loginValidator = loginValidator ?? throw new ArgumentNullException(nameof(loginValidator));
-            
+
             if (jwtOptions == null || jwtOptions.Value == null)
                 throw new ArgumentNullException(nameof(jwtOptions));
             _jwtOptions = jwtOptions.Value;
@@ -53,15 +56,16 @@ namespace Application.Services
             if (accessTokenOptions == null || accessTokenOptions.Value == null)
                 throw new ArgumentNullException(nameof(accessTokenOptions));
             _accessTokenExpirationMinutes = accessTokenOptions.Value.ExpiresMinutes;
-            
+            _accessTokenMinutesBeforeExpiration = accessTokenOptions.Value.MinutesBeforeExpiration;
+
             if (refreshTokenOptions == null || refreshTokenOptions.Value == null)
                 throw new ArgumentNullException(nameof(refreshTokenOptions));
             _refreshTokenExpirationDays = refreshTokenOptions.Value.ExpiresDays;
-            
+
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task<TokenResponseDto> Authenticate(LoginUserDto loginUserDto, CancellationToken ct)
+        public async Task<TokenResponseDto> AuthenticateAsync(LoginUserDto loginUserDto, CancellationToken ct)
         {
             await _loginValidator.ValidationCheck(loginUserDto);
             _logger.LogInformation("Authenticate user: {Username}", loginUserDto.Username);
@@ -91,16 +95,16 @@ namespace Application.Services
         }
 
         public async Task<int> RevokeRefreshTokensAsync(Guid userId, CancellationToken ct)
-        { 
+        {
             return await _refreshTokenRepository.RevokeRefreshTokensByUserIdAsync(userId, ct);
         }
 
-        #region Tokens      
+        #region Tokens
         private async Task<TokenResponseDto> GenerateTokens(User user, CancellationToken ct)
         {
             _logger.LogInformation("Generating tokens for user: {UserId}", user.Id);
 
-            var newRefreshToken = GenerateRefreshToken(user.Id);
+            var newRefreshToken = GenerateRefreshToken(user);
             var newAccessToken = GenerateAccessToken(user);
 
             await _refreshTokenRepository.AddRefreshTokenAsync(newRefreshToken, ct);
@@ -111,25 +115,27 @@ namespace Application.Services
         {
             _logger.LogInformation("Refreshing tokens for user: {UserId}", user.Id);
 
-            var newRefreshToken = GenerateRefreshToken(user.Id);
+            var newRefreshToken = GenerateRefreshToken(user);
             var newAccessToken = GenerateAccessToken(user);
 
             await _refreshTokenRepository.UpdateRefreshTokenAsync(newRefreshToken, refreshToken, ct);
 
             return new TokenResponseDto(newAccessToken, newRefreshToken.Token);
         }
+        #endregion
 
         private string GenerateAccessToken(User user)
         {
             if (_jwtOptions.SigningKey == null)
                 throw new Exception("JWT Signing Key is not set");
 
-            var claims = UserMapper.GetClaims(user);
+            var tokenType = TokenType.Access;
+            var expires = GetExpires(tokenType);
+            var claims = GetClaims(user, tokenType, expires);
 
             // Configure JWT
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SigningKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.UtcNow.AddMinutes(_accessTokenExpirationMinutes);
 
             var jwt = new JwtSecurityToken(
                 issuer: null,
@@ -141,22 +147,18 @@ namespace Application.Services
 
             return new JwtSecurityTokenHandler().WriteToken(jwt);
         }
-
-        private RefreshToken GenerateRefreshToken(Guid userId)
+        private RefreshToken GenerateRefreshToken(User user)
         {
             if (_jwtOptions.SigningKey == null)
                 throw new Exception("JWT Signing Key is not set");
 
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-                new Claim("type", "refresh"),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // Unique identifier for the token to make it non-replayable
-            };
+            var tokenType = TokenType.Refresh;
+            var expires = GetExpires(tokenType);
+            var claims = GetClaims(user, tokenType, expires);
 
+            // Configure JWT
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SigningKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.UtcNow.AddDays(_refreshTokenExpirationDays);
 
             var token = new JwtSecurityToken(
                 issuer: null,
@@ -168,8 +170,39 @@ namespace Application.Services
 
             var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
 
-            return new RefreshToken(jwtToken, userId, expires, DateTime.UtcNow);
+            return new RefreshToken(jwtToken, user.Id, expires, DateTime.UtcNow);
         }
-        #endregion
+
+        private Claim[] GetClaims(User user, TokenType tokenType, DateTime expires)
+        {
+            if (string.IsNullOrWhiteSpace(user.Username))
+                throw new Exception("User's data is incomplete");
+
+            // no sensitive data
+            return new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim("type", tokenType.ToString()),
+                new Claim(ClaimTypes.Expiration, expires.ToString("o")), // ISO 8601 format
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // Unique identifier for the token to make it non-replayable
+            };
+        }
+
+        private enum TokenType
+        {
+            Access,
+            Refresh
+        }
+
+        private DateTime GetExpires(TokenType tokenType)
+        {
+            return tokenType switch
+            {
+                TokenType.Access => DateTime.UtcNow.AddMinutes(_accessTokenExpirationMinutes),
+                TokenType.Refresh => DateTime.UtcNow.AddDays(_refreshTokenExpirationDays),
+                _ => throw new ArgumentOutOfRangeException(nameof(tokenType), "Invalid token type")
+            };
+        }
     }
 }

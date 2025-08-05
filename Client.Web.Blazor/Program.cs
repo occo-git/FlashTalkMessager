@@ -23,7 +23,7 @@ builder.Logging.AddSimpleConsole(options =>
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddJwtAuthentication(builder.Configuration); // Register JWT authentication from Shared.Extensions
-builder.Services.AddHttpClient<IApiClientService, ApiClientService>(client => client.BaseAddress = new Uri("http://flashtalk_api:8080/")); // Add HttpClient for API calls
+builder.Services.AddHttpClient<IApiClientService, ApiClientService>(client => client.BaseAddress = new Uri("http://flashtalk_api:8080/")); // Add HttpClient for API calls (Transient lifetime - created for each request)
 #endregion
 
 #region Data Protection

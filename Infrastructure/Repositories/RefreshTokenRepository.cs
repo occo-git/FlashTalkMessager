@@ -40,7 +40,8 @@ namespace Infrastructure.Repositories
 
         public async Task<RefreshToken?> GetRefreshTokenAsync(string tokenValue, CancellationToken ct)
         {
-            _logger.LogInformation("Getting refresh token for value {TokenValue}", tokenValue);
+            //_logger.LogInformation("Getting refresh token for value {TokenValue}", tokenValue);
+            _logger.LogInformation("Getting refresh token by value");
             try
             {
                 return await _context.RefreshTokens
@@ -72,10 +73,11 @@ namespace Infrastructure.Repositories
 
         public async Task<RefreshToken> UpdateRefreshTokenAsync(RefreshToken newToken, string oldValue, CancellationToken ct)
         {
-            _logger.LogInformation("Updating refresh token from {OldValue} to {NewToken}", oldValue, newToken.Token);
+            //_logger.LogInformation("Updating refresh token from {OldValue} to {NewToken}", oldValue, newToken.Token);
+            _logger.LogInformation("Updating refresh token");
             try
             {
-                // Находим старый токен
+                // Find the old token by its value
                 var oldToken = await _context.RefreshTokens
                     .FirstOrDefaultAsync(t => t.Token == oldValue, ct);
 

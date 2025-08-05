@@ -16,7 +16,7 @@ namespace Shared.Extensions
             if (jwtValidationOptions == null)
                 throw new ArgumentNullException(nameof(jwtValidationOptions), "JwtValidationOptions cannot be null.");
 
-            // get the JWT signing key from environment variable
+            // get the JWT signing key from the environment variable
             var skVal = configuration[_jwtSecretEnv];
             if (string.IsNullOrWhiteSpace(skVal))
                 throw new Exception("JWT Signing Key is not set");

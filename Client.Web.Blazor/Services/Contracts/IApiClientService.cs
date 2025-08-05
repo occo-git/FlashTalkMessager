@@ -6,9 +6,11 @@ namespace Client.Web.Blazor.Services.Contracts
     {
         Task<ApiResultDto> RegisterAsync(CreateUserDto newUser, CancellationToken ct);
         Task<ApiResultDto> LoginAsync(LoginUserDto loginUser, CancellationToken ct);
+        Task<bool> IsAuthenticatedAsync(CancellationToken ct);
+        Task<bool> IsAccessSoonExpiredAsync(CancellationToken ct);
         Task<ApiResultDto> UpdateTokensAsync(CancellationToken ct);
+        Task<bool> TryUpdateTokensAsync(CancellationToken ct);
         Task<ApiResultDto> LogoutAsync(CancellationToken ct);
         Task<UserInfoDto?> GetCurrentUserInfoAsync(CancellationToken ct);
-        Task<bool> IsAuthenticatedAsync(CancellationToken ct);
     }
 }

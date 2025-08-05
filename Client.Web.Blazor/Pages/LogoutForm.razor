@@ -4,7 +4,7 @@
 
 <div>
     <p>Do you realy want to log out?</p>
-    <button type="submit" class="btn btn-primary" @onclick="HandleLogout" disabled="@isSubmitting">√ Log out</button>
+    <button type="submit" class="btn btn-primary" @onclick="HandleLogout" disabled="@isSubmitting">&#10003;&nbsp;Log out</button>
     @if (apiResult != null)
     {
         @if (apiResult.Success)
