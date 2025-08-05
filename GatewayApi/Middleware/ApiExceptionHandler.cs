@@ -1,4 +1,6 @@
-﻿namespace GatewayApi.Middleware
+﻿using Application.Dto;
+
+namespace GatewayApi.Middleware
 {
     public class ApiExceptionHandler(
         RequestDelegate next,
@@ -30,7 +32,7 @@
                     };
 
                     await context.Response.WriteAsJsonAsync(
-                        new
+                        new ApiErrorResponseDto
                         {
                             Type = ex.GetType().Name,
                             Title = "An error occurred.",

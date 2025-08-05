@@ -12,7 +12,7 @@ builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(options =>
 {
     options.SingleLine = true;
-    options.TimestampFormat = "yyyy-MM-dd HH:mm:ss.fff UTC";
+    options.TimestampFormat = "yyyy-MM-dd HH:mm:ss.fff UTC ";
     options.UseUtcTimestamp = true;
     options.ColorBehavior = Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Enabled;    
     options.IncludeScopes = false;

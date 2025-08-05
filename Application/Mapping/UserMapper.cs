@@ -34,19 +34,6 @@ namespace Application.Mapping
             };
         }
 
-        public static Claim[] GetClaims(User user)
-        {
-            if (string.IsNullOrWhiteSpace(user.Username))
-                throw new Exception("User's data is incomplete");
-
-            // no sensitive data
-            return new[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username)
-            };
-        }
-
         public static bool CheckPassword(User user, LoginUserDto loginUserDto)
         {
             return BCrypt.Net.BCrypt.Verify(loginUserDto.Password, user.PasswordHash);

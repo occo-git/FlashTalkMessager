@@ -3,6 +3,7 @@
 @using Application.Dto
 @using System.Text.Json
 @using Client.Web.Blazor.Services.Contracts
+@using Microsoft.AspNetCore.Components.Authorization
 @inherits LayoutComponentBase
 @inject IApiClientService ApiClientService
 
@@ -86,6 +87,10 @@
                     <div class="error">@apiResult.ErrorMessage</div>
                 }
             }
+            @if (isAuthenticated)
+            {
+                <button class="btn btn-primary" @onclick="TryUpdateTokensAsync">&olarr;&nbsp;Tokens</button>
+            }
             @RenderBody()
         </main>
 
@@ -103,58 +108,55 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await HandleIsAuthenticated();
-        UpdateTokensTimerTimerInit();
+        await TryUpdateTokensAsync();
+        await IsAuthenticatedAsync();
     }
 
-    #region Authentication Check
-    private async Task HandleIsAuthenticated()
+    #region Api Client Service
+    private async Task IsAuthenticatedAsync()
     {
-        apiResult = null;
+        isAuthenticated = await TryAsync(ApiClientService.IsAuthenticatedAsync);
+        if (isAuthenticated)
+        {
+            apiResult = new ApiResultDto { Success = true, Message = "Authenticated" };
+        }
+        else
+        {
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = "Not authenticated" };
+            currentMenu = MenuItem.Login;
+        }
+    }
 
+    private async Task TryUpdateTokensAsync()
+    {
+        if (isAuthenticated)
+        {
+            var isTokenUpdated = await TryAsync(ApiClientService.TryUpdateTokensAsync);
+            if (isTokenUpdated)
+            {
+                apiResult = new ApiResultDto { Success = true, Message = "Tokens updated" };
+                //await IsAuthenticated();
+            }
+        }
+    }
+
+    private async Task<T> TryAsync<T>(Func<CancellationToken, Task<T>> action)
+    {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await HttpIsAuthenticated(cts.Token);        
-    }
-
-    private async Task HttpIsAuthenticated(CancellationToken ct)
-    {
-        isAuthenticated = false;
         try
         {
-            isAuthenticated = await ApiClientService.IsAuthenticatedAsync(ct);
-            if (isAuthenticated)
-            {
-                apiResult = new ApiResultDto { Success = true, Message = "Authenticated." };
-            }
-            else
-            {
-                apiResult = new ApiResultDto { Success = false, ErrorMessage = "Not authenticated." };
-                currentMenu = MenuItem.Login;
-            }
+            return await action(cts.Token);
         }
         catch (OperationCanceledException)
         {
-            Console.WriteLine("Request was canceled.");
             apiResult = new ApiResultDto { Success = false, ErrorMessage = "Request canceled." };
+            return default!;
         }
         catch (Exception ex)
         {
             apiResult = new ApiResultDto { Success = false, ErrorMessage = $"Error occured: {ex.Message}" };
+            return default!;
         }
-    }
-    #endregion
-
-    #region Update tokens
-    private Timer? updateTokensTimer;
-    private void UpdateTokensTimerTimerInit()
-    {
-        updateTokensTimer = new Timer(async _ => await InvokeAsync(UpdateTokensAsync), null, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(2));
-    }
-    private async Task UpdateTokensAsync()
-    {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await ApiClientService.UpdateTokensAsync(cts.Token);
-        await HandleIsAuthenticated();
     }
     #endregion
 
@@ -210,6 +212,7 @@
 
     private async Task SelectMenuItem(MenuItem menu)
     {
+        await TryUpdateTokensAsync();
         currentMenu = menu;
         sidebarOpen = false;
         if (menu == MenuItem.Messages)
@@ -238,7 +241,7 @@
 
     async Task OnLoginSuccess()
     {
-        await HandleIsAuthenticated();
+        await IsAuthenticatedAsync();
         await Task.Delay(1000);
         currentMenu = MenuItem.Profile;
     }
@@ -261,13 +264,13 @@
 
     async Task OnLogoutSuccess()
     {
-        await HandleIsAuthenticated();
+        await IsAuthenticatedAsync();
         await Task.Delay(1000);
         currentMenu = MenuItem.Login;
     }
 
     public void Dispose()
     {
-        updateTokensTimer?.Dispose();
+
     }
 }

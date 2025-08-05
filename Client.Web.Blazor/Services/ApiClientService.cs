@@ -16,7 +16,7 @@ namespace Client.Web.Blazor.Services
 
         public async Task<ApiResultDto> RegisterAsync(CreateUserDto newUser, CancellationToken ct)
         {
-            return await TryAsync(ct, async _ct => 
+            return await TryAsync(ct, async _ct =>
             {
                 var response = await _httpClient.PostAsJsonAsync("api/users/register", newUser, _ct);
                 return await LogResponseAsync(response, "Registration successful", "Registration failed");
@@ -30,12 +30,36 @@ namespace Client.Web.Blazor.Services
                 return await LogResponseAsync(response, "Login successful", "Login failed");
             });
         }
+        public async Task<bool> IsAuthenticatedAsync(CancellationToken ct)
+        {
+            return await TryAsync(ct, async _ct =>
+            {
+                var response = await _httpClient.GetAsync("api/users/is-authenticated", _ct);
+                return await LogResponseAsync<bool>(response, "Check is authenticated successfully", "Check is authenticated failed");
+            });
+        }
+        public async Task<bool> IsAccessSoonExpiredAsync(CancellationToken ct)
+        {
+            return await TryAsync(ct, async _ct =>
+            {
+                var response = await _httpClient.GetAsync("api/users/is-access-soon-expired", _ct);
+                return await LogResponseAsync<bool>(response, "Access expiration check successful", "Access expiration check failed");
+            });
+        }
         public async Task<ApiResultDto> UpdateTokensAsync(CancellationToken ct)
         {
             return await TryAsync(ct, async _ct =>
             {
                 var response = await _httpClient.PostAsync("api/users/update-tokens", null, _ct);
                 return await LogResponseAsync(response, "Update tokens successful", "Update tokens failed");
+            });
+        }
+        public async Task<bool> TryUpdateTokensAsync(CancellationToken ct)
+        {
+            return await TryAsync(ct, async _ct =>
+            {
+                var response = await _httpClient.PostAsync("api/users/try-update-tokens", null, _ct);
+                return await LogResponseAsync<bool>(response, "Try update tokens successful", "Try update tokens failed");
             });
         }
         public async Task<ApiResultDto> LogoutAsync(CancellationToken ct)
@@ -46,11 +70,31 @@ namespace Client.Web.Blazor.Services
                 return await LogResponseAsync(response, "Logout successful", "Logout failed");
             });
         }
+        public async Task<UserInfoDto?> GetCurrentUserInfoAsync(CancellationToken ct)
+        {
+            return await TryAsync(ct, async _ct =>
+            {
+                var response = await _httpClient.GetAsync("api/users/me", _ct);
+                return await LogResponseAsync<UserInfoDto?>(response, "Get current user info successfully", "Get current user info failed");
+            });
+        }
 
-        private async Task<ApiResultDto> LogResponseAsync(
-            HttpResponseMessage response, 
-            string successLogMessage, 
-            string failureLogMessage)
+        private async Task<T?> LogResponseAsync<T>(HttpResponseMessage response, string successLogMessage, string failureLogMessage)
+        {
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("{successLogMessage} (StatusCode: {statusCode})", successLogMessage, response.StatusCode);
+                return await response.Content.ReadFromJsonAsync<T>();
+            }
+            else
+            {
+                var apiErrorResponseDto = await response.Content.ReadFromJsonAsync<ApiErrorResponseDto>();
+                _logger.LogError("{failureLogMessage}: {errorString} (StatusCode: {statusCode})", failureLogMessage, apiErrorResponseDto?.Detail, response.StatusCode);
+                return default(T);
+            }
+        }
+
+        private async Task<ApiResultDto> LogResponseAsync(HttpResponseMessage response, string successLogMessage, string failureLogMessage)
         {
             if (response.IsSuccessStatusCode)
             {
@@ -59,54 +103,14 @@ namespace Client.Web.Blazor.Services
             }
             else
             {
-                string errorString = await response.Content.ReadAsStringAsync();
-                _logger.LogError("{failureLogMessage}: {errorString} (StatusCode: {statusCode})", failureLogMessage, errorString, response.StatusCode);
+                var apiErrorResponseDto = await response.Content.ReadFromJsonAsync<ApiErrorResponseDto>();
+                _logger.LogError("{failureLogMessage}: {errorString} (StatusCode: {statusCode})", failureLogMessage, apiErrorResponseDto?.Detail, response.StatusCode);
                 return new ApiResultDto
                 {
                     Success = false,
-                    ErrorMessage = $"{failureLogMessage}: {errorString}"
+                    ErrorMessage = $"{failureLogMessage}: {apiErrorResponseDto?.Detail}"
                 };
             }
-        }
-
-        public async Task<UserInfoDto?> GetCurrentUserInfoAsync(CancellationToken ct)
-        {
-            return await TryAsync(ct, async _ct =>
-            {
-                var response = await _httpClient.GetAsync("api/users/me", _ct);
-                if (response.IsSuccessStatusCode)
-                {
-                    _logger.LogInformation("Get current user info successfully (StatusCode: {statusCode})", response.StatusCode);
-                    return await response.Content.ReadFromJsonAsync<UserInfoDto>(_ct);
-                }
-                else
-                {
-                    //string errorString = await response.Content.ReadAsStringAsync();
-                    //_logger.LogError("Get current user info failed {errorString} (StatusCode: {statusCode})", errorString, response.StatusCode);
-                    _logger.LogError("Get current user info failed (StatusCode: {statusCode})", response.StatusCode);
-                    return null;
-                }
-            });
-        }
-
-        public async Task<bool> IsAuthenticatedAsync(CancellationToken ct)
-        {
-            return await TryAsync(ct, async _ct =>
-            {
-                var response = await _httpClient.GetAsync("api/users/is-authenticated", _ct);
-                if (response.IsSuccessStatusCode)
-                {
-                    _logger.LogInformation("Check is authenticated successfully (StatusCode: {statusCode})", response.StatusCode);
-                    return await response.Content.ReadFromJsonAsync<bool>(_ct);
-                }
-                else
-                {
-                    //string errorString = await response.Content.ReadAsStringAsync();
-                    //_logger.LogError("Check is authenticated failed {errorString} (StatusCode: {statusCode})", errorString, response.StatusCode);
-                    _logger.LogError("Check is authenticated failed (StatusCode: {statusCode})", response.StatusCode);
-                    return false;
-                }
-            });
         }
 
         private async Task<T> TryAsync<T>(CancellationToken ct, Func<CancellationToken, Task<T>> action)
