@@ -17,7 +17,7 @@ namespace Domain.Models
         public required Guid UserId { get; set; }
 
         [ForeignKey(nameof(UserId))]
-        public required User User { get; set; }
+        public User? User { get; set; }
 
         public DateTime ConnectedAt { get; set; } = DateTime.UtcNow;
     }
