@@ -72,9 +72,8 @@ if (args.Length > 0 && args[0].Equals("migrate", StringComparison.InvariantCultu
 
     using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
     await migrationService.MigrateDatabaseAsync(cts.Token);
-
-    // Application will exit after migration
-    return;
+   
+    return; // Application will exit after migration
 }
 #endregion
 
@@ -91,7 +90,7 @@ if (app.Environment.IsDevelopment())
     //app.UseDeveloperExceptionPage();
     app.UseSwagger();
     app.UseSwaggerUI();    
-    app.MapGet("/", () => Results.Redirect("/swagger")); // redirect from / to /swagger
+    app.MapGet("/", () => Results.Redirect("/swagger")); // redirect from "/" to "/swagger"
 }
 else
 {

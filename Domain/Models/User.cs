@@ -11,7 +11,7 @@ namespace Domain.Models
     public record User
     {
         [Key]
-        public Guid Id { get; set; } // Primary Key
+        public Guid Id { get; set; }
 
         [Required]
         [MaxLength(50)]
@@ -26,9 +26,9 @@ namespace Domain.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        // Навигационные свойства
-        public ICollection<Connection> Connections { get; set; } = new List<Connection>();
-        public ICollection<Message> MessagesSent { get; set; } = new List<Message>();
         public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+        public ICollection<Connection> Connections { get; set; } = new List<Connection>();
+        public ICollection<ChatUser> ChatUsers { get; set; } = new List<ChatUser>();
+        public ICollection<Message> MessagesSent { get; set; } = new List<Message>();
     }
 }
