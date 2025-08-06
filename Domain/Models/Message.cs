@@ -11,19 +11,24 @@ namespace Domain.Models
     public record Message
     {
         [Key]
-        public Guid Id { get; set; } // PK
+        public Guid Id { get; set; }
 
         [Required]
-        public Guid SenderId { get; set; } // FK к отправителю сообщения
+        public required Guid ChatId { get; set; }
+
+        [ForeignKey(nameof(ChatId))]
+        public required Chat Chat { get; set; }
+
+        [Required]
+        public required Guid SenderId { get; set; }
+
+        [ForeignKey(nameof(SenderId))]
+        public required User Sender { get; set; }
+
+        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
         [Required]
         [MaxLength(1000)]
         public required string Content { get; set; }
-
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-
-        // Навигация к отправителю
-        [ForeignKey(nameof(SenderId))]
-        public required User Sender { get; set; }
     }
 }

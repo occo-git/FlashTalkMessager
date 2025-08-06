@@ -8,17 +8,16 @@ using System.Threading.Tasks;
 
 namespace Domain.Models
 {
-    public record Connection
+    public record ChatUser
     {
-        [Key]
-        public required string ConnectionId { get; set; } // for SignalR
+        [Required]
+        public Guid ChatId { get; set; }
+        [ForeignKey(nameof(ChatId))]
+        public Chat? Chat { get; set; }
 
         [Required]
-        public required Guid UserId { get; set; }
-
+        public Guid UserId { get; set; }
         [ForeignKey(nameof(UserId))]
-        public required User User { get; set; }
-
-        public DateTime ConnectedAt { get; set; } = DateTime.UtcNow;
+        public User? User { get; set; }
     }
 }

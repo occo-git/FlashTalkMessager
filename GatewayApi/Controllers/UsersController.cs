@@ -138,7 +138,6 @@ namespace GatewayApi.Controllers
 
             await validator.ValidationCheck(user);
 
-            await Task.Delay(10000, ct); // Simulate some processing delay
             _logger.LogInformation("Authenticate user: {Username}", user.Username);
             var tokenResponse = await _authenticationService.AuthenticateAsync(user, ct);
 
@@ -279,12 +278,6 @@ namespace GatewayApi.Controllers
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult<UserInfoDto>> GetLoggedUser(CancellationToken ct)
         {
-            if (User.Identity == null || !User.Identity.IsAuthenticated)
-            {
-                _logger.LogWarning("Unauthorized user");
-                return Unauthorized("Unauthorized user");
-            }
-
             var id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(id))
             {
@@ -295,6 +288,47 @@ namespace GatewayApi.Controllers
             if (Guid.TryParse(id, out var userId))
             {
                 _logger.LogInformation("Finding user: Id={id}", id);
+                var user = await _userService.GetByIdAsync(userId, ct);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found: Id={id}", id);
+                    return NotFound("User not found");
+                }
+                else
+                {
+                    _logger.LogInformation("Found user: Id={id}, Username={username}", user.Id, user.Username);
+                    return Ok(user);
+                }
+            }
+            else
+            {
+                _logger.LogError("Invalid user ID format: {Id}", id);
+                return BadRequest("Invalid user ID format");
+            }
+        }
+
+        /// <summary>
+        /// Gets the currently logged-in user chats
+        /// </summary>
+        /// <remarks>
+        /// GET: api/users/chats
+        /// Requires authentication.
+        /// </remarks>
+        /// <returns>The user information.</returns>
+        [HttpGet("chats")]
+        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        public async Task<ActionResult<UserInfoDto>> GetLoggedUserChats(CancellationToken ct)
+        {
+            var id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(id))
+            {
+                _logger.LogWarning("User ID claim not found");
+                return Unauthorized("Unauthorized user");
+            }
+
+            if (Guid.TryParse(id, out var userId))
+            {
+                _logger.LogInformation("Get chats for user: Id={id}", id);
                 var user = await _userService.GetByIdAsync(userId, ct);
                 if (user == null)
                 {

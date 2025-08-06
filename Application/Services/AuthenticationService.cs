@@ -170,7 +170,7 @@ namespace Application.Services
 
             var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
 
-            return new RefreshToken(jwtToken, user.Id, expires, DateTime.UtcNow);
+            return new RefreshToken(jwtToken, user.Id, expires);
         }
 
         private Claim[] GetClaims(User user, TokenType tokenType, DateTime expires)
