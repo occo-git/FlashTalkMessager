@@ -26,26 +26,26 @@
             <nav class="side-frame-nav">
                 @if (isAuthenticated)
                 {
-                    <a href="#" @onclick="() => SelectMenuItem(MenuItem.Profile)">
+                    <a @onclick="() => SelectMenuItem(MenuItem.Profile)">
                         <ProfileIcon />
                         Profile
                     </a>                
-                    <a href="#" @onclick="() => SelectMenuItem(MenuItem.Messages)">
+                    <a @onclick="() => SelectMenuItem(MenuItem.Messages)">
                         <MessageIcon />
                         Chats
                     </a>
-                    <a href="#" @onclick="() => SelectMenuItem(MenuItem.Settings)">
+                    <a @onclick="() => SelectMenuItem(MenuItem.Settings)">
                         <SettingsIcon />
                         Settings
                     </a>
-                    <a href="#" @onclick="() => SelectMenuItem(MenuItem.Logout)">
+                    <a @onclick="() => SelectMenuItem(MenuItem.Logout)">
                         <ExitIcon />
                         Log Out
                     </a>
                 }
                 else
                 {
-                    <a href="#" @onclick="() => SelectMenuItem(MenuItem.Login)">
+                    <a @onclick="() => SelectMenuItem(MenuItem.Login)">
                         <ProfileIcon />
                         Log In
                     </a>

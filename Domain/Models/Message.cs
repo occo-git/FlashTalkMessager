@@ -17,13 +17,13 @@ namespace Domain.Models
         public required Guid ChatId { get; set; }
 
         [ForeignKey(nameof(ChatId))]
-        public required Chat Chat { get; set; }
+        public Chat? Chat { get; set; }
 
         [Required]
         public required Guid SenderId { get; set; }
 
         [ForeignKey(nameof(SenderId))]
-        public required User Sender { get; set; }
+        public User? Sender { get; set; }
 
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
