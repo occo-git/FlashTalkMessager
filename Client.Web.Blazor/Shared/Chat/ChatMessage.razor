@@ -1,0 +1,8 @@
+﻿<div class="chat-message @(IsMine ? "mine" : "other")">
+    <div class="message-text">@Text</div>
+</div>
+
+@code {
+    [Parameter] public string Text { get; set; } = default!;
+    [Parameter] public bool IsMine { get; set; }
+}

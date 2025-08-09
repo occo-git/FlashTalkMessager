@@ -16,9 +16,9 @@ namespace GatewayApi.Services
             IOptions<RefreshTokenOptions> refreshTokenOptions)
         {
             if (accessTokenOptions == null)
-                throw new ArgumentNullException("AccessTokenOptions cannot be null.");
+                throw new ArgumentNullException(nameof(accessTokenOptions));
             if (refreshTokenOptions == null)
-                throw new ArgumentNullException("RefreshTokenOptions cannot be null.");
+                throw new ArgumentNullException(nameof(refreshTokenOptions));
 
             _accessCookieName = accessTokenOptions.Value.Name ?? "accessToken";
             _accessTokenOptions = accessTokenOptions.Value;

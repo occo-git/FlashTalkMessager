@@ -33,7 +33,6 @@ namespace Application.Services
         {
             return await _context.Users
                 .Include(u => u.Connections)
-                .Include(u => u.ChatUsers)
                 .FirstOrDefaultAsync(u => u.Id == id, ct);
         }
 
@@ -41,7 +40,6 @@ namespace Application.Services
         {
             return await _context.Users
                 .Include(u => u.Connections)
-                .Include(u => u.ChatUsers)
                 .FirstOrDefaultAsync(u => u.Username == username, ct);
         }
 
@@ -49,7 +47,6 @@ namespace Application.Services
         {
             return await _context.Users
                 .Include(u => u.Connections)
-                .Include(u => u.ChatUsers)
                 .FirstOrDefaultAsync(u => u.Email == email, ct);
         }
 
@@ -91,7 +88,7 @@ namespace Application.Services
 
             var existingUser = await _context.Users.FindAsync(user.Id, ct);
             if (existingUser == null)
-                throw new InvalidOperationException("User not found");
+                throw new KeyNotFoundException("User not found");
 
             // uпdate only the necessary fields
             existingUser.Username = user.Username;

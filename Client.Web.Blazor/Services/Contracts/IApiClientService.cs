@@ -12,5 +12,9 @@ namespace Client.Web.Blazor.Services.Contracts
         Task<bool> TryUpdateTokensAsync(CancellationToken ct);
         Task<ApiResultDto> LogoutAsync(CancellationToken ct);
         Task<UserInfoDto?> GetCurrentUserInfoAsync(CancellationToken ct);
+      
+        Task<List<ChatInfoDto>?> GetOrCreateChatsAsync(CancellationToken ct);
+        Task<List<GetMessageDto>?> GetMessagesByChatIdAsync(Guid chatId, CancellationToken ct);
+        Task<ChatInfoDto?> SendMessageAsync(SendMessageDto message, CancellationToken ct);
     }
 }

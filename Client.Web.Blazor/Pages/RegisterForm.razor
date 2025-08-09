@@ -42,7 +42,7 @@
         <tr>
             <td colspan="2">
                 <button type="submit" class="btn btn-primary" disabled="@isSubmitting">&#10003;&nbsp;Submit</button>
-                <button type="button" class="btn btn-primary" @onclick="CancelRegister" disabled="@(cts == null)">&times;&nbsp;Cancel</button>
+                <button type="button" class="btn" @onclick="CancelRegister" disabled="@(cts == null)">&times;&nbsp;Cancel</button>
             </td>
         </tr>
     </table>
@@ -62,7 +62,7 @@
     <p>
         Have an account?
         <br />
-        <a class="btn" @onclick="GoToLogin">→ Log in</a>
+        <button class="btn" @onclick="GoToLogin">→ Log in</button>
     </p>
 </EditForm>
 

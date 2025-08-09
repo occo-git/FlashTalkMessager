@@ -1,4 +1,5 @@
-﻿using Application.Services.Contracts;
+﻿using Application.Dto;
+using Application.Services.Contracts;
 using Domain.Models;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -18,33 +19,56 @@ namespace Application.Services
             _context = context;
         }
 
-        public async Task<List<Chat>> GetChatsByUserIdAsync(Guid userId)
+        public async Task<List<Chat>> GetChatsByUserIdAsync(Guid userId, CancellationToken ct)
         {
             return await _context.Chats
                 .Where(c => c.ChatUsers.Any(uc => uc.UserId == userId))
                 .Include(c => c.ChatUsers)
-                .ToListAsync();
+                .ToListAsync(ct);
         }
 
-        public async Task<List<Message>> GetMessagesByChatIdAsync(Guid chatId)
+        public async Task<Chat> CreateChatAsync(Chat chat, CancellationToken ct)
+        {
+            _context.Chats.Add(chat);
+            await _context.SaveChangesAsync(ct);
+            return chat;
+        }
+
+        public async Task<Chat> UpdateChatAsync(Chat chat, CancellationToken ct)
+        {
+            _context.Chats.Update(chat);
+            await _context.SaveChangesAsync(ct);
+            return chat;
+        }
+
+        public async Task<Chat> SaveChatAsync(Chat chat, CancellationToken ct)
+        {
+            if (chat.Id == Guid.Empty)
+            {
+                return await CreateChatAsync(chat, ct);
+            }
+            else
+            {
+                return await UpdateChatAsync(chat, ct);
+            }
+        }
+
+        public async Task<List<Message>> GetMessagesByChatIdAsync(Guid chatId, CancellationToken ct)
         {
             return await _context.Messages
                 .Where(m => m.ChatId == chatId)
                 .OrderBy(m => m.Timestamp)
                 .Include(m => m.Sender)
-                .ToListAsync();
+                .ToListAsync(ct);
         }
 
-        public async Task<Message> SendMessageAsync(Guid chatId, Guid userId, string content)
+        public async Task<Message> SendMessageAsync(Message message, CancellationToken ct)
         {
-            var message = new Message
-            {
-                ChatId = chatId,
-                SenderId = userId,
-                Content = content
-            };
+            message.Id = Guid.NewGuid();
+            message.Timestamp = DateTime.UtcNow;
+
             _context.Messages.Add(message);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(ct);
             return message;
         }
     }

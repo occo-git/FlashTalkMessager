@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Application.Dto
 {
-    public class CreateUserDto
+    public record CreateUserDto
     {
         public string Username { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;

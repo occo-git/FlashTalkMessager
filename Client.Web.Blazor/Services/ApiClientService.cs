@@ -14,6 +14,7 @@ namespace Client.Web.Blazor.Services
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        #region User Management
         public async Task<ApiResultDto> RegisterAsync(CreateUserDto newUser, CancellationToken ct)
         {
             return await TryAsync(ct, async _ct =>
@@ -78,21 +79,35 @@ namespace Client.Web.Blazor.Services
                 return await LogResponseAsync<UserInfoDto?>(response, "Get current user info successfully", "Get current user info failed");
             });
         }
+        #endregion
 
-        private async Task<T?> LogResponseAsync<T>(HttpResponseMessage response, string successLogMessage, string failureLogMessage)
+        #region Chat Management
+        public async Task<List<ChatInfoDto>?> GetOrCreateChatsAsync(CancellationToken ct)
         {
-            if (response.IsSuccessStatusCode)
+            return await TryAsync(ct, async _ct =>
             {
-                _logger.LogInformation("{successLogMessage} (StatusCode: {statusCode})", successLogMessage, response.StatusCode);
-                return await response.Content.ReadFromJsonAsync<T>();
-            }
-            else
-            {
-                var apiErrorResponseDto = await response.Content.ReadFromJsonAsync<ApiErrorResponseDto>();
-                _logger.LogError("{failureLogMessage}: {errorString} (StatusCode: {statusCode})", failureLogMessage, apiErrorResponseDto?.Detail, response.StatusCode);
-                return default(T);
-            }
+                var response = await _httpClient.GetAsync("api/chats/me", _ct);
+                return await LogResponseAsync<List<ChatInfoDto>>(response, "Get or create chats by user ID successfully", "Get or create chats by user ID failed");
+            });
         }
+        public async Task<List<GetMessageDto>?> GetMessagesByChatIdAsync(Guid chatId, CancellationToken ct)
+        {
+            return await TryAsync(ct, async _ct =>
+            {
+                var response = await _httpClient.GetAsync($"api/chats/{chatId}/messages", _ct);
+                return await LogResponseAsync<List<GetMessageDto>>(response, "Get messages successfully", "Get messages failed");
+            });
+        }
+        public async Task<ChatInfoDto?> SendMessageAsync(SendMessageDto message, CancellationToken ct)
+        {
+            _logger.LogInformation($"SendMessageDto: {message.GetJson()}");
+            return await TryAsync(ct, async _ct =>
+            {
+                var response = await _httpClient.PostAsJsonAsync("api/chats/messages", message, _ct);
+                return await LogResponseAsync<ChatInfoDto?>(response, "Send message successfully", "Send message failed");
+            });
+        }
+        #endregion
 
         private async Task<ApiResultDto> LogResponseAsync(HttpResponseMessage response, string successLogMessage, string failureLogMessage)
         {
@@ -110,6 +125,24 @@ namespace Client.Web.Blazor.Services
                     Success = false,
                     ErrorMessage = $"{failureLogMessage}: {apiErrorResponseDto?.Detail}"
                 };
+            }
+        }
+
+        private async Task<T?> LogResponseAsync<T>(HttpResponseMessage response, string successLogMessage, string failureLogMessage)
+        {
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("{successLogMessage} (StatusCode: {statusCode})", successLogMessage, response.StatusCode);
+                return await response.Content.ReadFromJsonAsync<T>();
+            }
+            else
+            {
+                _logger.LogWarning("Response was not successful: {statusCode}", response.StatusCode);
+                _logger.LogWarning("Response content: {content}", await response.Content.ReadAsStringAsync());
+                var apiErrorResponseDto = await response.Content.ReadFromJsonAsync<ApiErrorResponseDto>();
+                var errorString = apiErrorResponseDto?.Detail ?? "No error details provided";
+                _logger.LogError("{failureLogMessage}: {errorString} (StatusCode: {statusCode})", failureLogMessage, apiErrorResponseDto?.Detail, response.StatusCode);
+                return default(T);
             }
         }
 

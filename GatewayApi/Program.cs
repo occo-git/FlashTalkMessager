@@ -2,8 +2,11 @@
 using GatewayApi.Extensions;
 using GatewayApi.Middleware;
 using Infrastructure.Services.Contracts;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.OpenApi.Models;
 using Shared.Extensions;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +17,7 @@ builder.Logging.AddSimpleConsole(options =>
     options.SingleLine = true;
     options.TimestampFormat = "yyyy-MM-dd HH:mm:ss.fff UTC ";
     options.UseUtcTimestamp = true;
-    options.ColorBehavior = Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Enabled;    
+    options.ColorBehavior = Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Enabled;
     options.IncludeScopes = false;
 });
 #endregion
@@ -72,7 +75,7 @@ if (args.Length > 0 && args[0].Equals("migrate", StringComparison.InvariantCultu
 
     using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
     await migrationService.MigrateDatabaseAsync(cts.Token);
-   
+
     return; // Application will exit after migration
 }
 #endregion
@@ -89,14 +92,14 @@ if (app.Environment.IsDevelopment())
 {
     //app.UseDeveloperExceptionPage();
     app.UseSwagger();
-    app.UseSwaggerUI();    
+    app.UseSwaggerUI();
     app.MapGet("/", () => Results.Redirect("/swagger")); // redirect from "/" to "/swagger"
 }
 else
 {
     //app.UseExceptionHandler("/Error");
     app.UseHsts(); // turning on HSTS (HTTP Strict Transport Security) header to inform browsers that the site should only be accessed over HTTPS
-}   
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

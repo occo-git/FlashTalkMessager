@@ -55,7 +55,7 @@ namespace Application.Services
 
             var existing = await _context.Connections.FindAsync(connection.ConnectionId);
             if (existing == null)
-                throw new InvalidOperationException("Connection not found");
+                throw new KeyNotFoundException($"Connection with ID {connection.ConnectionId} not found");
 
             existing.UserId = connection.UserId;
             existing.ConnectedAt = connection.ConnectedAt;

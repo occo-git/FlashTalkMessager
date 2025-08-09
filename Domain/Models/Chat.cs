@@ -17,7 +17,6 @@ namespace Domain.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        public ICollection<User> Participants { get; set; } = new List<User>();
         public ICollection<Message> Messages { get; set; } = new List<Message>();
         public ICollection<ChatUser> ChatUsers { get; set; } = new List<ChatUser>();
     }
