@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.Data;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
 
@@ -26,7 +27,7 @@ namespace GatewayApi.Controllers
         private readonly ILogger<UsersController> _logger;
 
         public UsersController(
-            IUserService userService, 
+            IUserService userService,
             IAuthenticationService authenticationService,
             ITokenCookieService tokenCookieService,
             ILogger<UsersController> logger)
@@ -78,7 +79,7 @@ namespace GatewayApi.Controllers
 
             var user = await _userService.GetByIdAsync(id, ct);
             if (user == null)
-                return NotFound();
+                throw new KeyNotFoundException($"User with ID {id} not found.");
 
             var dto = UserMapper.ToDto(user);
             return Ok(dto);
@@ -103,7 +104,7 @@ namespace GatewayApi.Controllers
             CancellationToken ct)
         {
             if (user == null)
-                return BadRequest("User is null.");
+                throw new ArgumentNullException(nameof(user), "User cannot be null");
 
             await validator.ValidationCheck(user);
 
@@ -111,7 +112,7 @@ namespace GatewayApi.Controllers
             User newUser = UserMapper.ToDomain(user);
             var createdUser = await _userService.CreateAsync(newUser, ct);
 
-            // StatusCodes.Status201Created
+            // Returning 201 Created with a link to the newly created user
             return CreatedAtAction(nameof(GetById), new { id = createdUser.Id }, createdUser);
         }
 
@@ -129,12 +130,12 @@ namespace GatewayApi.Controllers
         [HttpPost("login")]
         [AllowAnonymous]
         public async Task<ActionResult<TokenResponseDto>> Login(
-            [FromBody] LoginUserDto user, 
+            [FromBody] LoginUserDto user,
             [FromServices] IValidator<LoginUserDto> validator,
             CancellationToken ct)
         {
             if (user == null)
-                return BadRequest("User cannot be null");
+                throw new ArgumentNullException(nameof(user), "User cannot be null");
 
             await validator.ValidationCheck(user);
 
@@ -163,7 +164,7 @@ namespace GatewayApi.Controllers
         {
             if (User?.Identity != null && User.Identity.IsAuthenticated)
                 return Ok(true);
-            
+
             return Ok(false);
         }
 
@@ -180,7 +181,7 @@ namespace GatewayApi.Controllers
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public IActionResult IsAcessSoonExpired(CancellationToken ct)
         {
-            return Ok(IsAcessSoonExpired(ct));
+            return Ok(IsAccessTokenSoonExpired());
         }
 
         private bool IsAccessTokenSoonExpired()
@@ -221,7 +222,7 @@ namespace GatewayApi.Controllers
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
                 _logger.LogError("Refresh token cookie is missing or empty");
-                return BadRequest("Refresh token is required.");
+                throw new ArgumentNullException("Refresh token is required.");
             }
 
             _logger.LogInformation("Update tokens");
@@ -276,22 +277,15 @@ namespace GatewayApi.Controllers
         /// <returns>The user information.</returns>
         [HttpGet("me")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-        public async Task<ActionResult<UserInfoDto>> GetLoggedUser(CancellationToken ct)
+        public async Task<ActionResult<UserInfoDto>> GetLoggedUser(CancellationToken token)
         {
-            var id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(id))
+            return await GetCurrentUser<UserInfoDto>(token, async (ct, userId) =>
             {
-                _logger.LogWarning("User ID claim not found");
-                return Unauthorized("Unauthorized user");
-            }
-
-            if (Guid.TryParse(id, out var userId))
-            {
-                _logger.LogInformation("Finding user: Id={id}", id);
+                _logger.LogInformation("Finding user: Id={id}", userId);
                 var user = await _userService.GetByIdAsync(userId, ct);
                 if (user == null)
                 {
-                    _logger.LogWarning("User not found: Id={id}", id);
+                    _logger.LogWarning("User not found: Id={id}", userId);
                     return NotFound("User not found");
                 }
                 else
@@ -299,12 +293,7 @@ namespace GatewayApi.Controllers
                     _logger.LogInformation("Found user: Id={id}, Username={username}", user.Id, user.Username);
                     return Ok(user);
                 }
-            }
-            else
-            {
-                _logger.LogError("Invalid user ID format: {Id}", id);
-                return BadRequest("Invalid user ID format");
-            }
+            });
         }
 
         /// <summary>
@@ -317,22 +306,15 @@ namespace GatewayApi.Controllers
         /// <returns>The user information.</returns>
         [HttpGet("chats")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-        public async Task<ActionResult<UserInfoDto>> GetLoggedUserChats(CancellationToken ct)
+        public async Task<ActionResult<UserInfoDto>> GetLoggedUserChats(CancellationToken token)
         {
-            var id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(id))
+            return await GetCurrentUser<UserInfoDto>(token, async (ct, userId) =>
             {
-                _logger.LogWarning("User ID claim not found");
-                return Unauthorized("Unauthorized user");
-            }
-
-            if (Guid.TryParse(id, out var userId))
-            {
-                _logger.LogInformation("Get chats for user: Id={id}", id);
+                _logger.LogInformation("Get chats for user: Id={id}", userId);
                 var user = await _userService.GetByIdAsync(userId, ct);
                 if (user == null)
                 {
-                    _logger.LogWarning("User not found: Id={id}", id);
+                    _logger.LogWarning("User not found: Id={id}", userId);
                     return NotFound("User not found");
                 }
                 else
@@ -340,12 +322,7 @@ namespace GatewayApi.Controllers
                     _logger.LogInformation("Found user: Id={id}, Username={username}", user.Id, user.Username);
                     return Ok(user);
                 }
-            }
-            else
-            {
-                _logger.LogError("Invalid user ID format: {Id}", id);
-                return BadRequest("Invalid user ID format");
-            }
+            });
         }
 
         /// <summary>
@@ -357,28 +334,14 @@ namespace GatewayApi.Controllers
         /// </remarks>
         [HttpPost("logout")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-        public async Task<IActionResult> Logout(CancellationToken ct)
+        public async Task<ActionResult<bool>> Logout(CancellationToken token)
         {
-            var id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (id == null)
+            return await GetCurrentUser<bool>(token, async (ct, userId) =>
             {
-                _logger.LogWarning("Unauthorized user");
-                return Unauthorized("Unauthorized user");
-            }
-
-            _logger.LogInformation("Find user: Id={id}", id);
-            if (Guid.TryParse(id, out var userId))
-            {
-                await _authenticationService.RevokeRefreshTokensAsync(userId, ct); 
+                await _authenticationService.RevokeRefreshTokensAsync(userId, ct);
                 DeleteTokenCookies();
-            }
-            else
-            {
-                _logger.LogError("Invalid user ID format: {Id}", id);
-                return BadRequest("Invalid user ID format");
-            }
-
-            return Ok(new { Message = "Logged out" });
+                return Ok(true);
+            });
         }
 
         #region Cookie Management
@@ -402,5 +365,28 @@ namespace GatewayApi.Controllers
             _tokenCookieService.DeleteRefreshTokenCookie(Response);
         }
         #endregion
+
+        private async Task<ActionResult<T>> GetCurrentUser<T>(
+            CancellationToken ct,
+            Func<CancellationToken, Guid, 
+                Task<ActionResult<T>>> action)
+        {
+            var id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(id))
+            {
+                _logger.LogWarning("User ID claim not found");
+                throw new UnauthorizedAccessException("Unauthorized user");
+            }
+
+            if (Guid.TryParse(id, out var userId))
+            {
+                return await action(ct, userId);
+            }
+            else
+            {
+                _logger.LogError("Invalid user ID format: {Id}", id);
+                throw new FormatException($"Invalid user ID format: {id}");
+            }
+        }
     }
 }

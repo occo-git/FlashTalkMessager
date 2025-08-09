@@ -1,4 +1,5 @@
-﻿using Domain.Models;
+﻿using Application.Dto;
+using Domain.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,8 +10,9 @@ namespace Application.Services.Contracts
 {
     public interface IChatService
     {
-        Task<List<Chat>> GetChatsByUserIdAsync(Guid userId);
-        Task<List<Message>> GetMessagesByChatIdAsync(Guid chatId);
-        Task<Message> SendMessageAsync(Guid chatId, Guid userId, string content);
+        Task<List<Chat>> GetChatsByUserIdAsync(Guid userId, CancellationToken ct);
+        Task<Chat> CreateChatAsync(Chat chat, CancellationToken ct);
+        Task<List<Message>> GetMessagesByChatIdAsync(Guid chatId, CancellationToken ct);
+        Task<Message> SendMessageAsync(Message message, CancellationToken ct);
     }
 }

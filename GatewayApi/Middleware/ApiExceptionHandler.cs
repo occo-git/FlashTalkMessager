@@ -2,20 +2,28 @@
 
 namespace GatewayApi.Middleware
 {
-    public class ApiExceptionHandler(
-        RequestDelegate next,
-        ILogger<ApiExceptionHandler> logger)
+    public class ApiExceptionHandler
     {
+        private readonly RequestDelegate _next;
+        private readonly ILogger<ApiExceptionHandler> _logger;
+
+        public ApiExceptionHandler(
+            RequestDelegate next, 
+            ILogger<ApiExceptionHandler> logger)
+        {
+            _next = next;
+            _logger = logger;
+        }
 
         public async Task InvokeAsync(HttpContext context)
         {
             try
             {
-                await next(context);
+                await _next(context);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "An unhandled exception occurred.");
+                _logger.LogError(ex, "An unhandled exception occurred.");
 
                 if (!context.Response.HasStarted)
                 {

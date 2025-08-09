@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Application.Dto
 {
-    public class LoginUserDto
+    public record LoginUserDto
     {
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;

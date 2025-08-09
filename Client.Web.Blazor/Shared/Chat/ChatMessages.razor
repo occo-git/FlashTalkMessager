@@ -1,0 +1,91 @@
+﻿@using Application.Dto
+@using Client.Web.Blazor.Shared
+@using Client.Web.Blazor.Services.Contracts
+@inject IJSRuntime JSRuntime
+@inject IApiClientService ApiClientService
+
+<div class="chat-container">
+    @if (SelectedChat == null)
+    {
+        <div class="error">Чат не найден</div>
+    }
+    else
+    {
+        <div class="chat-title">@SelectedChat.Name</div>
+    }    
+    <div class="messages-area" @ref="messagesDivRef">
+        @if (Messages == null || Messages.Count == 0)
+        {
+            <div class="no-messages">No messages</div>
+        }
+        else
+        {
+            @foreach (var msg in Messages)
+            {
+                <ChatMessage Text="@msg.Content" IsMine="@msg.IsMine" />
+            }
+        }
+    </div>
+
+    <div class="input-area">
+        <input @bind="newMessageContent" @bind:event="oninput" @onkeydown="HandleKeyDown" placeholder="Enter your message..." />
+        <button class="btn btn-send" @onclick="SendMessage" disabled="@string.IsNullOrWhiteSpace(newMessageContent)">&#10548;</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public ChatInfoDto SelectedChat { get; set; } = null!;
+    [Parameter] public List<GetMessageDto>? Messages { get; set; } = null;
+    [Parameter] public EventCallback<SendMessageDto> OnSendMessage { get; set; }
+
+    private ElementReference messagesDivRef;
+
+    private string newMessageContent = string.Empty;
+    private bool isChat { get => SelectedChat != null; }
+    private bool isNewMessage { get => !string.IsNullOrWhiteSpace(newMessageContent); }
+
+    private async Task SendMessage()
+    {
+        if (isChat && isNewMessage)
+        {
+            if (OnSendMessage.HasDelegate)
+            {
+                var message = new SendMessageDto
+                {
+                    ChatId = SelectedChat.Id,
+                    ChatIsNew = SelectedChat.IsNew,
+                    ChatName = SelectedChat.Name,
+                    ReceiverId = SelectedChat.ReceiverId,
+                    Content = newMessageContent
+                };
+                await OnSendMessage.InvokeAsync(message);
+            }
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        if (Messages != null && Messages.Count > 0)
+        {
+            await Task.Delay(500);
+            await ScrollToBottom();
+            newMessageContent = string.Empty;
+        }
+    }
+
+    // Send message on Enter key press
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        await JSRuntime.InvokeVoidAsync("scrollToEnd", messagesDivRef);
+    }
+}

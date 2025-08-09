@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Application.Dto
 {
-    public class ApiErrorResponseDto
+    public record ApiErrorResponseDto
     {
         public string Type { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;

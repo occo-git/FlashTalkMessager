@@ -47,9 +47,11 @@ namespace GatewayApi.Controllers
         public async Task<IActionResult> Create([FromBody] Connection connection)
         {
             if (connection == null)
-                return BadRequest("Connection is null.");
+                throw new ArgumentNullException(nameof(connection));
 
             var createdConnection = await _connectionService.CreateAsync(connection);
+
+            // Returning 201 Created with a link to the newly created connection
             return CreatedAtAction(nameof(GetById), new { connectionId = createdConnection.ConnectionId }, createdConnection);
         }
 
@@ -58,7 +60,7 @@ namespace GatewayApi.Controllers
         public async Task<IActionResult> Update(string connectionId, [FromBody] Connection connection)
         {
             if (connection == null || connectionId != connection.ConnectionId)
-                return BadRequest("Invalid connection data.");
+                throw new ArgumentException("Connection data is invalid.");
 
             var existingConnection = await _connectionService.GetByIdAsync(connectionId);
             if (existingConnection == null)

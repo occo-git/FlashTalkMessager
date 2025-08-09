@@ -1,0 +1,35 @@
+﻿@using System
+@using System.Collections.Generic
+@using Microsoft.AspNetCore.Components
+@using Application.Dto;
+
+<div class="chat-list">
+    @if (Chats == null || Chats.Count == 0)
+    {
+        <div>Чаты отсутствуют</div>
+    }
+    else
+    {
+        <ul>
+            @foreach (var chat in Chats)
+            {
+                <li @onclick="() => OnChatSelected(chat)" class="chat-item">
+                    @chat.Name
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    [Parameter] public List<ChatInfoDto>? Chats { get; set; }
+    [Parameter] public EventCallback<ChatInfoDto> ChatSelected { get; set; }
+
+    private async Task OnChatSelected(ChatInfoDto chat)
+    {
+        if (ChatSelected.HasDelegate)
+        {
+            await ChatSelected.InvokeAsync(chat);
+        }
+    }
+}

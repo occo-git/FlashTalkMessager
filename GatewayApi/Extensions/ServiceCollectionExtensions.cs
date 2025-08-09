@@ -29,10 +29,10 @@ namespace GatewayApi.Extensions
             services.AddScoped<IDatabaseMigrationService, DatabaseMigrationService>();
             services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
-            services.AddScoped<IConnectionService, ConnectionService>();
-            services.AddScoped<IMessageService, MessageService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IAuthenticationService, AuthenticationService>();
+            services.AddScoped<IConnectionService, ConnectionService>();
+            services.AddScoped<IChatService, ChatService>();
             return services;
         }
 
