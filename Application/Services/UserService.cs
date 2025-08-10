@@ -22,7 +22,6 @@ namespace Application.Services
 
         public UserService(
             DataContext context,
-            IValidator<CreateUserDto> createUserValidator, 
             ILogger<UserService> logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));

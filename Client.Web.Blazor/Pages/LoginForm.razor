@@ -52,7 +52,7 @@
 </EditForm>
 
 @code {
-    [Parameter] public EventCallback OnLoginSuccess { get; set; }
+    [Parameter] public EventCallback<TokenResponseDto> OnLoginSuccess { get; set; }
     [Parameter] public EventCallback OnGoToRegister { get; set; }
 
     private class LoginModel
@@ -107,11 +107,11 @@
 
         try
         {
-            apiResult = await ApiClientService.LoginAsync(loginUser, ct);
-            if (apiResult.Success)
+            var tokenResponseDto = await ApiClientService.LoginAsync(loginUser, ct);
+            if (tokenResponseDto != null)
             {
                 loginModel.Clear();
-                await OnLoginSuccess.InvokeAsync();
+                await OnLoginSuccess.InvokeAsync(tokenResponseDto);
             }
         }
         catch (OperationCanceledException)

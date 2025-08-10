@@ -1,4 +1,5 @@
 ﻿using Application.Dto;
+using FluentValidation;
 
 namespace GatewayApi.Middleware
 {
@@ -23,7 +24,7 @@ namespace GatewayApi.Middleware
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An unhandled exception occurred.");
+                //_logger.LogError(ex, "An exception occurred.");
 
                 if (!context.Response.HasStarted)
                 {
@@ -36,6 +37,7 @@ namespace GatewayApi.Middleware
                         UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
                         KeyNotFoundException => StatusCodes.Status404NotFound,
                         OperationCanceledException => StatusCodes.Status408RequestTimeout,
+                        ValidationException => StatusCodes.Status422UnprocessableEntity,
                         _ => StatusCodes.Status500InternalServerError
                     };
 

@@ -8,6 +8,8 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @inherits LayoutComponentBase
 @inject IApiClientService ApiClientService
+@inject NavigationManager NavigationManager
+@inject IChatSignalServiceClient ChatService
 
 <div class="messenger-layout">
     <header class="header">
@@ -93,9 +95,33 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await TryUpdateTokensAsync();
+        Console.WriteLine("MainLayout initialized");
         await IsAuthenticatedAsync();
     }
+
+    #region Chat Signal Service
+    private async Task ChatSignalServiceStartAsync(TokenResponseDto tokenResponseDto)
+    {
+        try
+        {
+            await TryAsync(ct => ChatService.StartAsync("http://flashtalk_api:8080/chatHub", tokenResponseDto.AccessToken, ct));
+            ChatService.OnMessageReceivedAsync += async (message) => await GetMessagesAsync();
+        }
+        catch (Exception ex)
+        {
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = $"Chat service error: {ex.Message}" };
+        }
+    }
+    private async Task ChatSignalSendMessage(SendMessageDto message)
+    {
+        await TryUpdateTokensAsync();
+        if (selectedChat != null)
+        {            
+            await TryAsync(ct => ChatService.SendMessageAsync(message, ct));
+            await GetMessagesAsync();
+        }
+    }
+    #endregion
 
     #region Api Client Service
     private async Task IsAuthenticatedAsync()
@@ -140,6 +166,7 @@
         catch (Exception ex)
         {
             apiResult = new ApiResultDto { Success = false, ErrorMessage = $"Error occured: {ex.Message}" };
+            Console.WriteLine($"Error: {ex.Message}, {ex.StackTrace}");
             return default!;
         }
     }
@@ -201,11 +228,11 @@
         Settings,
         Logout
     }
-    private MenuItem currentMenu = MenuItem.Profile;
+    private MenuItem currentMenu = MenuItem.Welcome;
 
     private async Task SelectMenuItem(MenuItem menu)
     {
-        await TryUpdateTokensAsync();
+        Console.WriteLine($"Selected menu item: {menu}");
         currentMenu = menu;
         sidebarOpen = false;
         if (menu == MenuItem.Messages)
@@ -225,16 +252,17 @@
         MenuItem.Profile => @<UserProfile OnGoToLogin="OnGoToLogin" OnGoToRegister="OnGoToRegister" />,
         MenuItem.Login => @<LoginForm OnLoginSuccess="OnLoginSuccess" OnGoToRegister="OnGoToRegister" />,
         MenuItem.Register => @<RegisterForm OnRegisterSuccess="OnRegisterSuccess" OnGoToLogin="OnGoToLogin" />,
-        MenuItem.Messages => selectedChat is null ? @<SelectChat /> : @<ChatMessages SelectedChat="@selectedChat" Messages="@messages" OnSendMessage="OnSendMessage" />,
+        MenuItem.Messages => selectedChat is null ? @<SelectChat /> : @<ChatMessages SelectedChat="@selectedChat" Messages="@messages" OnSendMessage="ChatSignalSendMessage" />,
         MenuItem.Settings => @<Settings />,
         MenuItem.Logout => @<LogoutForm OnLogoutSuccess="OnLogoutSuccess" />,
         _ => @<Welcome />
     };
     #endregion
 
-    async Task OnLoginSuccess()
+    async Task OnLoginSuccess(TokenResponseDto tokenResponseDto)
     {
         await IsAuthenticatedAsync();
+        await ChatSignalServiceStartAsync(tokenResponseDto);
         await Task.Delay(1000);
         currentMenu = MenuItem.Profile;
     }
@@ -264,6 +292,7 @@
 
     async Task OnSendMessage(SendMessageDto message)
     {
+        await TryUpdateTokensAsync();
         if (selectedChat != null)
         {
             selectedChat = await TryAsync(ct => ApiClientService.SendMessageAsync(message, ct));
@@ -271,8 +300,9 @@
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-
+        ChatService.OnMessageReceivedAsync -= async (message) => await GetMessagesAsync();
+        await ChatService.StopAsync();
     }
 }

@@ -23,12 +23,12 @@ namespace Client.Web.Blazor.Services
                 return await LogResponseAsync(response, "Registration successful", "Registration failed");
             });
         }
-        public async Task<ApiResultDto> LoginAsync(LoginUserDto loginUser, CancellationToken ct)
+        public async Task<TokenResponseDto?> LoginAsync(LoginUserDto loginUser, CancellationToken ct)
         {
             return await TryAsync(ct, async _ct =>
             {
                 var response = await _httpClient.PostAsJsonAsync("api/users/login", loginUser, _ct);
-                return await LogResponseAsync(response, "Login successful", "Login failed");
+                return await LogResponseAsync<TokenResponseDto>(response, "Login successful", "Login failed");
             });
         }
         public async Task<bool> IsAuthenticatedAsync(CancellationToken ct)
@@ -76,7 +76,7 @@ namespace Client.Web.Blazor.Services
             return await TryAsync(ct, async _ct =>
             {
                 var response = await _httpClient.GetAsync("api/users/me", _ct);
-                return await LogResponseAsync<UserInfoDto?>(response, "Get current user info successfully", "Get current user info failed");
+                return await LogResponseAsync<UserInfoDto>(response, "Get current user info successfully", "Get current user info failed");
             });
         }
         #endregion
@@ -100,7 +100,7 @@ namespace Client.Web.Blazor.Services
         }
         public async Task<ChatInfoDto?> SendMessageAsync(SendMessageDto message, CancellationToken ct)
         {
-            _logger.LogInformation($"SendMessageDto: {message.GetJson()}");
+            //_logger.LogInformation($"SendMessageDto: {message.GetJson()}");
             return await TryAsync(ct, async _ct =>
             {
                 var response = await _httpClient.PostAsJsonAsync("api/chats/messages", message, _ct);
@@ -118,7 +118,17 @@ namespace Client.Web.Blazor.Services
             }
             else
             {
-                var apiErrorResponseDto = await response.Content.ReadFromJsonAsync<ApiErrorResponseDto>();
+                _logger.LogWarning("Response was not successful: {statusCode}", response.StatusCode);
+                ApiErrorResponseDto? apiErrorResponseDto = null;
+                try
+                {
+                    if (response.Content != null)
+                        apiErrorResponseDto = await response.Content.ReadFromJsonAsync<ApiErrorResponseDto>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning("Failed to deserialize error response: {exceptionMessage}", ex.Message);
+                }
                 _logger.LogError("{failureLogMessage}: {errorString} (StatusCode: {statusCode})", failureLogMessage, apiErrorResponseDto?.Detail, response.StatusCode);
                 return new ApiResultDto
                 {
@@ -138,9 +148,16 @@ namespace Client.Web.Blazor.Services
             else
             {
                 _logger.LogWarning("Response was not successful: {statusCode}", response.StatusCode);
-                _logger.LogWarning("Response content: {content}", await response.Content.ReadAsStringAsync());
-                var apiErrorResponseDto = await response.Content.ReadFromJsonAsync<ApiErrorResponseDto>();
-                var errorString = apiErrorResponseDto?.Detail ?? "No error details provided";
+                ApiErrorResponseDto? apiErrorResponseDto = null;
+                try
+                {
+                    if (response.Content != null)
+                        apiErrorResponseDto = await response.Content.ReadFromJsonAsync<ApiErrorResponseDto>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning("Failed to deserialize error response: {exceptionMessage}", ex.Message);
+                }
                 _logger.LogError("{failureLogMessage}: {errorString} (StatusCode: {statusCode})", failureLogMessage, apiErrorResponseDto?.Detail, response.StatusCode);
                 return default(T);
             }

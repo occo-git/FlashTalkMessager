@@ -19,6 +19,13 @@ namespace Application.Services
             _context = context;
         }
 
+        public async Task<Chat?> GetByIdAsync(Guid id, CancellationToken ct)
+        {
+            return await _context.Chats
+                .Include(c => c.ChatUsers)
+                .FirstOrDefaultAsync(c => c.Id == id, ct);
+        }
+
         public async Task<List<Chat>> GetChatsByUserIdAsync(Guid userId, CancellationToken ct)
         {
             return await _context.Chats
@@ -27,7 +34,7 @@ namespace Application.Services
                 .ToListAsync(ct);
         }
 
-        public async Task<Chat> CreateChatAsync(Chat chat, CancellationToken ct)
+        public async Task<Chat> AddChatAsync(Chat chat, CancellationToken ct)
         {
             _context.Chats.Add(chat);
             await _context.SaveChangesAsync(ct);
@@ -39,18 +46,6 @@ namespace Application.Services
             _context.Chats.Update(chat);
             await _context.SaveChangesAsync(ct);
             return chat;
-        }
-
-        public async Task<Chat> SaveChatAsync(Chat chat, CancellationToken ct)
-        {
-            if (chat.Id == Guid.Empty)
-            {
-                return await CreateChatAsync(chat, ct);
-            }
-            else
-            {
-                return await UpdateChatAsync(chat, ct);
-            }
         }
 
         public async Task<List<Message>> GetMessagesByChatIdAsync(Guid chatId, CancellationToken ct)
