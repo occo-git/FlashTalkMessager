@@ -96,7 +96,7 @@ namespace GatewayApi.Controllers
 
         // POST: api/chats/messages
         [HttpPost("messages")]
-        //[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult<ChatInfoDto>> SendMessage(
             [FromBody] SendMessageDto message,
             CancellationToken token)
@@ -119,7 +119,7 @@ namespace GatewayApi.Controllers
                     _logger.LogWarning("Chat is new, creating it before sending message");
 
                     var newChat = ChatMapper.ToDomain(message, userId);
-                    var createdChat = await _chatService.CreateChatAsync(newChat, ct);
+                    var createdChat = await _chatService.AddChatAsync(newChat, ct);
                     if (createdChat == null)
                         throw new InvalidOperationException("Failed to create chat");
 
@@ -141,8 +141,7 @@ namespace GatewayApi.Controllers
 
         private async Task<ActionResult<T>> GetCurrentUser<T>(
             CancellationToken ct,
-            Func<CancellationToken,
-                Guid, string, Task<ActionResult<T>>> action)
+            Func<CancellationToken, Guid, string, Task<ActionResult<T>>> action)
         {
             var id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var name = User.FindFirst(ClaimTypes.Name)?.Value;

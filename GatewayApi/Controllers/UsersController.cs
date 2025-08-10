@@ -191,9 +191,9 @@ namespace GatewayApi.Controllers
                 var expClaim = User.FindFirst(ClaimTypes.Expiration);
                 if (expClaim != null && DateTime.TryParse(expClaim.Value, out var expiration))
                 {
-                    var soonExpired = DateTime.UtcNow.AddMinutes(_accessTokenMinutesBeforeExpiration);
-                    _logger.LogInformation("Checking if access token is soon expired: SoonExpired={soonExpired}, Expired={expiration}", soonExpired, expiration);
-                    return soonExpired > expiration;
+                    var expired = DateTime.UtcNow.AddMinutes(_accessTokenMinutesBeforeExpiration);
+                    _logger.LogInformation("Checking if access token is soon expired: Expired={expired}, Expiration={expiration}", expired, expiration);
+                    return expired > expiration;
                 }
             }
             return false;
@@ -249,7 +249,7 @@ namespace GatewayApi.Controllers
         /// <returns>
         /// JWT tokens for the authenticated user.</returns>
         [HttpPost("try-update-tokens")]
-        [AllowAnonymous]
+        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult<bool>> TryUpdateTokens(CancellationToken ct)
         {
             _logger.LogInformation("Try update tokens request received");
@@ -282,35 +282,6 @@ namespace GatewayApi.Controllers
             return await GetCurrentUser<UserInfoDto>(token, async (ct, userId) =>
             {
                 _logger.LogInformation("Finding user: Id={id}", userId);
-                var user = await _userService.GetByIdAsync(userId, ct);
-                if (user == null)
-                {
-                    _logger.LogWarning("User not found: Id={id}", userId);
-                    return NotFound("User not found");
-                }
-                else
-                {
-                    _logger.LogInformation("Found user: Id={id}, Username={username}", user.Id, user.Username);
-                    return Ok(user);
-                }
-            });
-        }
-
-        /// <summary>
-        /// Gets the currently logged-in user chats
-        /// </summary>
-        /// <remarks>
-        /// GET: api/users/chats
-        /// Requires authentication.
-        /// </remarks>
-        /// <returns>The user information.</returns>
-        [HttpGet("chats")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-        public async Task<ActionResult<UserInfoDto>> GetLoggedUserChats(CancellationToken token)
-        {
-            return await GetCurrentUser<UserInfoDto>(token, async (ct, userId) =>
-            {
-                _logger.LogInformation("Get chats for user: Id={id}", userId);
                 var user = await _userService.GetByIdAsync(userId, ct);
                 if (user == null)
                 {

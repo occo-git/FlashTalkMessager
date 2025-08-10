@@ -43,10 +43,14 @@ namespace Shared.Extensions
                     {
                         OnMessageReceived = context =>
                         {
-                            // cookie-based token retrieval
-                            if (context.Request.Cookies.ContainsKey(accessTokenName))
+                            var accessToken = context.Request.Query["access_token"];
+                            var path = context.HttpContext.Request.Path;
+
+                            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+                                context.Token = accessToken;
+                            else if (context.Request.Cookies.ContainsKey(accessTokenName)) // cookie-based token retrieval
                                 context.Token = context.Request.Cookies[accessTokenName];
-                            
+
                             return Task.CompletedTask;
                         }
                     };

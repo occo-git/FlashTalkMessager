@@ -1,5 +1,6 @@
 ﻿using Application.Extentions;
 using GatewayApi.Extensions;
+using GatewayApi.Hubs;
 using GatewayApi.Middleware;
 using Infrastructure.Services.Contracts;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -56,6 +57,7 @@ builder.Services.AddTokenCookieService(builder.Configuration); // Token cookie s
 builder.Services.AddJwtAuthentication(builder.Configuration); // JWT authentication registration
 builder.Services.AddEndpointsApiExplorer(); // Swagger/OpenAPI
 builder.Services.AddSwaggerGen(); // SwaggerGen
+builder.Services.AddSignalR(options => { options.EnableDetailedErrors = true; }); // SignalR registration
 #endregion
 
 #region Data Protection
@@ -100,10 +102,11 @@ else
     //app.UseExceptionHandler("/Error");
     app.UseHsts(); // turning on HSTS (HTTP Strict Transport Security) header to inform browsers that the site should only be accessed over HTTPS
 }
-
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Top-level route registrations
+app.MapHub<ChatHub>("/chatHub"); // Register the SignalR hub route
 app.MapControllers();
 
 await app.RunAsync();
