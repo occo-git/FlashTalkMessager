@@ -9,12 +9,14 @@ namespace Shared.Extensions
 {
     public static class AuthExtensions
     {
+        private const string defaultAccessTokenName = "accessToken";
         private const string _jwtSecretEnv = "JWT_SECRET_KEY";
         public static void AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
         {
             var jwtValidationOptions = configuration.GetSection("JwtValidationOptions").Get<JwtValidationOptions>();
             if (jwtValidationOptions == null)
                 throw new ArgumentNullException(nameof(jwtValidationOptions), "JwtValidationOptions cannot be null.");
+
 
             // get the JWT signing key from the environment variable
             var skVal = configuration[_jwtSecretEnv];
@@ -28,13 +30,13 @@ namespace Shared.Extensions
                     options.ValidateIssuer = jwtValidationOptions.ValidateIssuer;
                     options.ValidateAudience = jwtValidationOptions.ValidateAudience;
                     options.ValidateLifetime = jwtValidationOptions.ValidateLifetime;
-                    options.SigningKey = skVal;
                     options.ValidateIssuerSigningKey = jwtValidationOptions.ValidateIssuerSigningKey;
-                    options.AccessTokenName = jwtValidationOptions.AccessTokenName;
+                    options.SigningKey = skVal;
+                    options.AccessTokenName = jwtValidationOptions.AccessTokenName ?? defaultAccessTokenName;
                 });
 
             jwtValidationOptions.SigningKey = skVal;
-            string accessTokenName = jwtValidationOptions.AccessTokenName ?? "accessToken";
+            string accessTokenName = jwtValidationOptions.AccessTokenName ?? defaultAccessTokenName;
 
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
@@ -43,13 +45,14 @@ namespace Shared.Extensions
                     {
                         OnMessageReceived = context =>
                         {
-                            var accessToken = context.Request.Query["access_token"];
                             var path = context.HttpContext.Request.Path;
-
-                            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
-                                context.Token = accessToken;
+                            if (path.StartsWithSegments("/chatHub"))
+                                context.Token = context.Request.Query[accessTokenName];
                             else if (context.Request.Cookies.ContainsKey(accessTokenName)) // cookie-based token retrieval
                                 context.Token = context.Request.Cookies[accessTokenName];
+                            string? token = context.Token;
+                            int len = token?.Length ?? 0;
+                            Console.WriteLine($">>> OnMessageReceived called Path={path} Token={token?.Substring(0, 4)}...{token?.Substring(len - 4)}");
 
                             return Task.CompletedTask;
                         }
@@ -59,8 +62,8 @@ namespace Shared.Extensions
                         ValidateIssuer = jwtValidationOptions.ValidateIssuer,
                         ValidateAudience = jwtValidationOptions.ValidateAudience,
                         ValidateLifetime = jwtValidationOptions.ValidateLifetime,
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(skVal)), // symmetric key to validate the token
-                        ValidateIssuerSigningKey = jwtValidationOptions.ValidateIssuerSigningKey
+                        ValidateIssuerSigningKey = jwtValidationOptions.ValidateIssuerSigningKey,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(skVal)) // symmetric key to validate the token
                     };
                 });
         }

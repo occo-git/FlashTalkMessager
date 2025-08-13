@@ -30,41 +30,40 @@ namespace GatewayApi.Hubs
             token.ThrowIfCancellationRequested();
 
             if (message == null)
-                throw new ArgumentNullException(nameof(message), "Message cannot be null");
+                throw new ArgumentNullException(nameof(message), "Hub.SendMessage: Message cannot be null");
 
             if (message.ChatId == Guid.Empty)
-                throw new ArgumentException("Chat ID is required", nameof(message.ChatId));
+                throw new ArgumentException("Hub.SendMessage: Chat ID is required", nameof(message.ChatId));
 
             if (string.IsNullOrWhiteSpace(message.Content))
-                throw new ArgumentException("Content cannot be empty", nameof(message.Content));
-
-            _logger.LogInformation("Sending message '{message}' to chat {chatId}", message.Content, message.ChatId);
+                throw new ArgumentException("Hub.SendMessage: Content cannot be empty", nameof(message.Content));
 
             return await GetCurrentUser<ChatInfoDto>(token, async (ct, userId, userName) =>
             {
                 if (message.ChatIsNew)
                 {
                     token.ThrowIfCancellationRequested();
-                    _logger.LogWarning("Chat is new, creating it before sending message");
+                    _logger.LogWarning("Hub.SendMessage: Chat is new, creating it before sending message");
 
                     var newChat = ChatMapper.ToDomain(message, userId);
                     var createdChat = await _chatService.AddChatAsync(newChat, ct);
                     if (createdChat == null)
                         throw new InvalidOperationException("Failed to create chat");
 
-                    _logger.LogInformation("Created new chat with ID {ChatId} for user {UserId}", createdChat.Id, userId);
+                    _logger.LogInformation("Hub.SendMessage: Created new chat with ID {ChatId} for user {UserId}", createdChat.Id, userId);
                     // Update message with created chat details
                     message.ChatId = createdChat.Id;
                     message.ChatIsNew = false;
                     message.ChatName = createdChat.Name;
                 }
 
-                token.ThrowIfCancellationRequested();
-                _logger.LogInformation("Sending message to chat {ChatId}", message.ChatId);
+                token.ThrowIfCancellationRequested(); 
+                _logger.LogInformation("Hub.SendMessage: Sending message '{message}' to chat {chatId}", message.Content, message.ChatId);
                 Message newMessage = MessageMapper.ToDomain(message, userId);
                 var messageCreated = await _chatService.SendMessageAsync(newMessage, ct);
 
-                await Clients.Caller.SendAsync("ReceiveMessage", message, ct);
+                await Clients.Caller.SendAsync("ReceiveMessage", MessageMapper.ToGetMessageDto(messageCreated, true), ct);
+                await Clients.User(message.ReceiverId.ToString()).SendAsync("ReceiveMessage", MessageMapper.ToGetMessageDto(messageCreated, false), ct);
 
                 return ChatMapper.ToChatInfoDto(message);
             });

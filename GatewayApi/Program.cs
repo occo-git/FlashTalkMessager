@@ -105,8 +105,8 @@ else
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Top-level route registrations
-app.MapHub<ChatHub>("/chatHub"); // Register the SignalR hub route
+// Register the SignalR hub route
+app.MapHub<ChatHub>("/chatHub"); 
 app.MapControllers();
 
 await app.RunAsync();

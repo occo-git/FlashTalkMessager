@@ -27,26 +27,26 @@
             <nav class="side-frame-nav">
                 @if (isAuthenticated)
                 {
-                    <a @onclick="() => SelectMenuItem(MenuItem.Profile)">
+                    <a @onclick="() => SelectMenuItemAsync(MenuItem.Profile)">
                         <ProfileIcon />
                         Profile
                     </a>
-                    <a @onclick="() => SelectMenuItem(MenuItem.Messages)">
+                    <a @onclick="() => SelectMenuItemAsync(MenuItem.Messages)">
                         <MessageIcon />
                         Chats
                     </a>
-                    <a @onclick="() => SelectMenuItem(MenuItem.Settings)">
+                    <a @onclick="() => SelectMenuItemAsync(MenuItem.Settings)">
                         <SettingsIcon />
                         Settings
                     </a>
-                    <a @onclick="() => SelectMenuItem(MenuItem.Logout)">
+                    <a @onclick="() => SelectMenuItemAsync(MenuItem.Logout)">
                         <ExitIcon />
                         Log Out
                     </a>
                 }
                 else
                 {
-                    <a @onclick="() => SelectMenuItem(MenuItem.Login)">
+                    <a @onclick="() => SelectMenuItemAsync(MenuItem.Login)">
                         <ProfileIcon />
                         Log In
                     </a>
@@ -90,36 +90,66 @@
 
 @code {
 
+    private const string apiClientServiceUrl = "http://flashtalk_api:8080/chatHub";
     private ApiResultDto? apiResult = null;
     private bool isAuthenticated = false;
 
     protected override async Task OnInitializedAsync()
     {
-        Console.WriteLine("MainLayout initialized");
+        Console.WriteLine("> MainLayout initialized");
         await IsAuthenticatedAsync();
     }
 
     #region Chat Signal Service
-    private async Task ChatSignalServiceStartAsync(TokenResponseDto tokenResponseDto)
+    private TokenResponseDto? tokenResponseDto = null;
+    private async Task ChatStartAsync()
     {
-        try
+        if (tokenResponseDto == null)
         {
-            await TryAsync(ct => ChatService.StartAsync("http://flashtalk_api:8080/chatHub", tokenResponseDto.AccessToken, ct));
-            ChatService.OnMessageReceivedAsync += async (message) => await GetMessagesAsync();
+            Console.WriteLine("> Token response is null.");
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = "Token response is null. Please log in." };
+            await SelectMenuItemAsync(MenuItem.Login);
+            return;
         }
-        catch (Exception ex)
+        if (ChatService.IsConnected)
         {
-            apiResult = new ApiResultDto { Success = false, ErrorMessage = $"Chat service error: {ex.Message}" };
+            Console.WriteLine("> ChatService is already connected.");
+            return;
+        }
+        else
+        {
+            Console.WriteLine("> Starting ChatService...");
+            await TryAsync(ct => ChatService.StartAsync(apiClientServiceUrl, tokenResponseDto.AccessToken, ct));
+            ChatService.OnMessageReceivedAsync += OnChatMessageReceived;
+            Console.WriteLine("> ChatService started.");
         }
     }
-    private async Task ChatSignalSendMessage(SendMessageDto message)
+    private async Task ChatStopAsync()
+    {
+        //Console.WriteLine("> Stopping ChatService...");
+        ChatService.OnMessageReceivedAsync -= OnChatMessageReceived;
+        await ChatService.StopAsync();
+        //Console.WriteLine("> ChatService stopped.");
+    }
+    private async Task ChatRestart()
+    {
+        //Console.WriteLine("> Restarting ChatService...");
+        await ChatStopAsync();
+        await ChatStartAsync();
+    }
+    private async Task ChatSendMessage(SendMessageDto message)
     {
         await TryUpdateTokensAsync();
         if (selectedChat != null)
-        {            
+        {
             await TryAsync(ct => ChatService.SendMessageAsync(message, ct));
             await GetMessagesAsync();
         }
+    }
+    private async Task OnChatMessageReceived(GetMessageDto message)
+    {
+        Console.WriteLine($"MainLayout.ChatService.OnMessageReceivedAsync: {message.Content}");
+        await GetMessagesAsync();
     }
     #endregion
 
@@ -134,40 +164,47 @@
         else
         {
             apiResult = new ApiResultDto { Success = false, ErrorMessage = "Not authenticated" };
-            currentMenu = MenuItem.Login;
+            await SelectMenuItemAsync(MenuItem.Login);
         }
     }
 
     private async Task TryUpdateTokensAsync()
     {
+        //await IsAuthenticatedAsync();
         if (isAuthenticated)
         {
-            var isTokenUpdated = await TryAsync(ApiClientService.TryUpdateTokensAsync);
-            if (isTokenUpdated)
+            //Console.WriteLine("> TryUpdateTokensAsync calling...");
+            var tokenUpdatedResultDto = await TryAsync<TokenUpdatedResultDto?>(ApiClientService.TryUpdateTokensAsync);
+            //Console.WriteLine("> TryUpdateTokensAsync called.");
+            if (tokenUpdatedResultDto == null || tokenUpdatedResultDto.TokenResponseDto == null)
             {
-                apiResult = new ApiResultDto { Success = true, Message = "Tokens updated" };
-                //await IsAuthenticated();
+                //Console.WriteLine("> TokenUpdatedResultDto is null or TokenResponseDto is null.");
+                apiResult = new ApiResultDto { Success = false, ErrorMessage = "Failed to update tokens" };
+                await SelectMenuItemAsync(MenuItem.Login);
+                return;
             }
-        }
-    }
-
-    private async Task<T> TryAsync<T>(Func<CancellationToken, Task<T>> action)
-    {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        try
-        {
-            return await action(cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            apiResult = new ApiResultDto { Success = false, ErrorMessage = "Request canceled." };
-            return default!;
-        }
-        catch (Exception ex)
-        {
-            apiResult = new ApiResultDto { Success = false, ErrorMessage = $"Error occured: {ex.Message}" };
-            Console.WriteLine($"Error: {ex.Message}, {ex.StackTrace}");
-            return default!;
+            if (string.IsNullOrEmpty(tokenUpdatedResultDto.TokenResponseDto.AccessToken) || string.IsNullOrEmpty(tokenUpdatedResultDto.TokenResponseDto.RefreshToken))
+            {
+                //Console.WriteLine("> Access or Refresh token is empty.");
+                apiResult = new ApiResultDto { Success = false, ErrorMessage = "Access or Refresh token is empty" };
+                await SelectMenuItemAsync(MenuItem.Login);
+                return;
+            }
+            if (tokenUpdatedResultDto.IsUpdated)
+            {
+                //Console.WriteLine("> Tokens updated successfully.");
+                apiResult = new ApiResultDto { Success = true, Message = "Tokens updated" };
+                tokenResponseDto = tokenUpdatedResultDto.TokenResponseDto;
+                await ChatRestart();
+            }
+            else
+            {
+                //Console.WriteLine("> Tokens are still valid.");
+                apiResult = new ApiResultDto { Success = true, Message = "Tokens are still valid" };
+                tokenResponseDto = tokenUpdatedResultDto.TokenResponseDto;
+                await ChatStartAsync();
+            }
+            //Console.WriteLine("> TryUpdateTokensAsync finished.");
         }
     }
     #endregion
@@ -230,19 +267,15 @@
     }
     private MenuItem currentMenu = MenuItem.Welcome;
 
-    private async Task SelectMenuItem(MenuItem menu)
+    private async Task SelectMenuItemAsync(MenuItem menu)
     {
-        Console.WriteLine($"Selected menu item: {menu}");
+        //Console.WriteLine($"> Selected menu item: {menu}");
         currentMenu = menu;
         sidebarOpen = false;
         if (menu == MenuItem.Messages)
-        {
             await LoadChatsAsync();
-        }
         else
-        {
             selectedChat = null;
-        }
     }
     #endregion
 
@@ -252,7 +285,7 @@
         MenuItem.Profile => @<UserProfile OnGoToLogin="OnGoToLogin" OnGoToRegister="OnGoToRegister" />,
         MenuItem.Login => @<LoginForm OnLoginSuccess="OnLoginSuccess" OnGoToRegister="OnGoToRegister" />,
         MenuItem.Register => @<RegisterForm OnRegisterSuccess="OnRegisterSuccess" OnGoToLogin="OnGoToLogin" />,
-        MenuItem.Messages => selectedChat is null ? @<SelectChat /> : @<ChatMessages SelectedChat="@selectedChat" Messages="@messages" OnSendMessage="ChatSignalSendMessage" />,
+        MenuItem.Messages => selectedChat is null ? @<SelectChat /> : @<ChatMessages SelectedChat="@selectedChat" Messages="@messages" OnSendMessage="ChatSendMessage" />,
         MenuItem.Settings => @<Settings />,
         MenuItem.Logout => @<LogoutForm OnLogoutSuccess="OnLogoutSuccess" />,
         _ => @<Welcome />
@@ -261,48 +294,69 @@
 
     async Task OnLoginSuccess(TokenResponseDto tokenResponseDto)
     {
+        this.tokenResponseDto = tokenResponseDto;
         await IsAuthenticatedAsync();
-        await ChatSignalServiceStartAsync(tokenResponseDto);
         await Task.Delay(1000);
-        currentMenu = MenuItem.Profile;
+        await SelectMenuItemAsync(MenuItem.Profile);
     }
 
-    void OnGoToRegister()
+    async Task OnGoToRegister()
     {
-        currentMenu = MenuItem.Register;
+        await SelectMenuItemAsync(MenuItem.Register);
     }
 
     async Task OnRegisterSuccess()
     {
         await Task.Delay(1000);
-        currentMenu = MenuItem.Login;
+        await SelectMenuItemAsync(MenuItem.Login);
     }
 
-    void OnGoToLogin()
+    async Task OnGoToLogin()
     {
-        currentMenu = MenuItem.Login;
+        await SelectMenuItemAsync(MenuItem.Login);
     }
 
     async Task OnLogoutSuccess()
     {
         await IsAuthenticatedAsync();
+        await ChatStopAsync();
         await Task.Delay(1000);
-        currentMenu = MenuItem.Login;
+        await SelectMenuItemAsync(MenuItem.Login);
     }
 
-    async Task OnSendMessage(SendMessageDto message)
+    // async Task OnSendMessage(SendMessageDto message)
+    // {
+    //     await TryUpdateTokensAsync();
+    //     if (selectedChat != null)
+    //     {
+    //         selectedChat = await TryAsync(ct => ApiClientService.SendMessageAsync(message, ct));
+    //         await GetMessagesAsync();
+    //     }
+    // }
+
+
+    private async Task<T> TryAsync<T>(Func<CancellationToken, Task<T>> action)
     {
-        await TryUpdateTokensAsync();
-        if (selectedChat != null)
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        try
         {
-            selectedChat = await TryAsync(ct => ApiClientService.SendMessageAsync(message, ct));
-            await GetMessagesAsync();
+            return await action(cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = "Request canceled." };
+            return default!;
+        }
+        catch (Exception ex)
+        {
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = $"Error occured: {ex.Message}" };
+            Console.WriteLine($"Error: {ex.Message}, {ex.StackTrace}");
+            return default!;
         }
     }
 
     public async ValueTask DisposeAsync()
     {
-        ChatService.OnMessageReceivedAsync -= async (message) => await GetMessagesAsync();
-        await ChatService.StopAsync();
+        await ChatStopAsync();
     }
 }

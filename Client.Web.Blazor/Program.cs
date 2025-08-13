@@ -9,14 +9,16 @@ var builder = WebApplication.CreateBuilder(args);
 
 #region Logging
 builder.Logging.ClearProviders();
-builder.Logging.AddSimpleConsole(options =>
-{
-    options.SingleLine = true;
-    options.TimestampFormat = "yyyy-MM-dd HH:mm:ss.fff UTC ";
-    options.UseUtcTimestamp = true;
-    options.ColorBehavior = Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Enabled;
-    options.IncludeScopes = false;
-});
+builder.Logging
+    .AddSimpleConsole(options =>
+    {
+        options.SingleLine = true;
+        options.TimestampFormat = "yyyy-MM-dd HH:mm:ss.fff UTC ";
+        options.UseUtcTimestamp = true;
+        options.ColorBehavior = Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Enabled;
+        options.IncludeScopes = false;
+    })
+    .AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
 #endregion
 
 #region Registration

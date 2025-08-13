@@ -50,9 +50,10 @@
     {
         try
         {
-            apiResult = await ApiClientService.LogoutAsync(ct);
-            if (apiResult.Success)
+            var res = await ApiClientService.LogoutAsync(ct);
+            if (res)
             {
+                apiResult = new ApiResultDto { Success = true, Message = "You have been logged out successfully." };
                 await OnLogoutSuccess.InvokeAsync();
             }
         }
