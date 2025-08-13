@@ -23,6 +23,14 @@
                     <div>@userInfoDto.Email</div>
                 </td>
             </tr>
+            <tr>
+                <td>
+                    Token:
+                </td>
+                <td>
+                    <div class="small-text">@shortToken</div>
+                </td>
+            </tr>
         </table>
         @if (apiResult != null)
         {
@@ -54,6 +62,20 @@
     [Parameter] public EventCallback OnGoToRegister { get; set; }
 
     private UserInfoDto? userInfoDto = null;
+    private string? shortToken = null;
+    private void SetUserInfoDto(UserInfoDto? dto)
+    {
+        userInfoDto = dto;
+        if (userInfoDto != null)
+            apiResult = new ApiResultDto { Success = true };
+        else
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = "User info not available." };
+
+        var accessToken = userInfoDto?.AccessToken;
+        var len = accessToken?.Length ?? 0;
+        shortToken = $"{accessToken?.Substring(0, 4)}...{accessToken?.Substring(len - 4)}";
+    }
+
     private ApiResultDto? apiResult = null;
     private CancellationTokenSource? cts = null;
 
@@ -64,8 +86,7 @@
 
     private async Task GetProfileInfo()
     {
-        userInfoDto = null;
-        apiResult = null;
+        SetUserInfoDto(null);
 
         cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         try
@@ -86,9 +107,7 @@
     {
         try
         {
-            userInfoDto = await ApiClientService.GetCurrentUserInfoAsync(ct);
-            if (userInfoDto != null)
-                apiResult = new ApiResultDto { Success = true };
+            SetUserInfoDto(await ApiClientService.GetCurrentUserInfoAsync(ct));
         }
         catch (OperationCanceledException)
         {

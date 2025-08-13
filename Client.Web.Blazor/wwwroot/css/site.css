@@ -177,6 +177,10 @@
     }
 }
 
+.small-text {
+    font-size: 0.5rem;
+}
+
 .footer {
     background-color: #bdc3c7;
     text-align: center;
