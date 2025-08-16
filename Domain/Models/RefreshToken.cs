@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Domain.Models
 {
-    public class RefreshToken
+    public record RefreshToken
     {
         [Key]
         public Guid Id { get; set; }

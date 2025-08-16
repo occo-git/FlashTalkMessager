@@ -235,8 +235,9 @@ namespace GatewayApi.Controllers
 
             SetTokenCookies(tokenResponse);
 
+            //  Console.WriteLine($"Access={tokenResponse.AccessToken} Refresh={tokenResponse.RefreshToken}");
             _logger.LogInformation("Updated tokens");
-            return Ok(new TokenUpdatedResultDto(true, tokenResponse));
+            return Ok(TokenMapper.ToUpdateDto(true, tokenResponse));
         }
 
         /// <summary>
@@ -256,12 +257,12 @@ namespace GatewayApi.Controllers
             if (IsAccessTokenSoonExpired())
             {
                 _logger.LogInformation("Access token is soon expired, updating tokens");
-                return Ok(await UpdateTokensAsync(ct));
+                return await UpdateTokensAsync(ct);
             }
             else
             {
                 _logger.LogInformation("Access token is not soon expired, no need to update tokens");
-                return Ok(new TokenUpdatedResultDto(false, GetTokensFromCookies()));
+                return Ok(TokenMapper.ToUpdateDto(false, GetTokensFromCookies()));
             }
         }
         #endregion

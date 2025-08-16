@@ -9,12 +9,12 @@ namespace Application.Services.Contracts
 {
     public interface IConnectionService
     {
-        Task<Connection?> GetByIdAsync(string connectionId);
-        Task<IEnumerable<Connection>> GetAllAsync();
-        Task<Connection> CreateAsync(Connection connection);
-        Task<Connection> UpdateAsync(Connection connection);
-        Task<bool> DeleteAsync(string connectionId);
-        Task<IEnumerable<Connection>> GetByUserIdAsync(Guid userId);
-        Task<bool> DeleteByUserIdAsync(Guid userId);
+        Task<Connection?> GetByIdAsync(string connectionId, CancellationToken ct);
+        Task<IEnumerable<Connection>> GetAllAsync(CancellationToken ct);
+        Task<Connection> CreateAsync(Connection connection, CancellationToken ct);
+        Task<Connection> UpdateAsync(Connection connection, CancellationToken ct);
+        Task<bool> DeleteAsync(string connectionId, CancellationToken ct);
+        Task<IEnumerable<Connection>> GetByUserIdAsync(Guid userId, CancellationToken ct);
+        Task<bool> DeleteByUserIdAsync(Guid userId, CancellationToken ct);
     }
 }

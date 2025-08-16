@@ -33,7 +33,7 @@ namespace GatewayApi.Services
             var _accessTokenCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                //Secure = true,
+                Secure = _ato.Secure,
                 SameSite = _ato.SameSite,
                 Expires = DateTime.UtcNow.AddMinutes(_ato.ExpiresMinutes)
             };
@@ -45,7 +45,7 @@ namespace GatewayApi.Services
             var _refreshTokenCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                //Secure = true,
+                Secure = _rto.Secure,
                 SameSite = _rto.SameSite,
                 Expires = DateTime.UtcNow.AddDays(_rto.ExpiresDays)
             };
@@ -63,7 +63,7 @@ namespace GatewayApi.Services
             var _accessTokenCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                //Secure = true,
+                Secure = _ato.Secure,
                 SameSite = _ato.SameSite
             };
             response.Cookies.Delete(_accessCookieName, _accessTokenCookieOptions);
@@ -74,7 +74,7 @@ namespace GatewayApi.Services
             var _refreshTokenCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                //Secure = true,
+                Secure = _rto.Secure,
                 SameSite = _rto.SameSite
             };
             response.Cookies.Delete(_refreshCookieName, _refreshTokenCookieOptions);

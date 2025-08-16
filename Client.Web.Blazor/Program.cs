@@ -1,4 +1,4 @@
-using Client.Web.Blazor.Services;
+﻿using Client.Web.Blazor.Services;
 using Client.Web.Blazor.Services.Contracts;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -25,7 +25,9 @@ builder.Logging
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddJwtAuthentication(builder.Configuration); // Register JWT authentication from Shared.Extensions
-builder.Services.AddHttpClient<IApiClientService, ApiClientService>(client => client.BaseAddress = new Uri("http://flashtalk_api:8080/")); // Add HttpClient for API calls (Transient lifetime - created for each request)
+builder.Services
+    .AddHttpClient<IApiClientService, ApiClientService>(client => client.BaseAddress = new Uri("https://flashtalk_api:443/")) // Add HttpClient for API calls (Transient lifetime - created for each request)
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator }); // Отключить проверку сертификата (только для разработки!)
 builder.Services.AddScoped<IChatSignalServiceClient, ChatSignalServiceClient>();
 #endregion
 
@@ -36,22 +38,24 @@ builder.Services.AddDataProtection()
     .SetApplicationName("FlashTalkMessager");
 #endregion
 
-builder.WebHost.ConfigureKestrel(opts =>
+#region Kestrel
+builder.WebHost.ConfigureKestrel(options =>
 {
-    opts.ListenAnyIP(5000); // Listen on port 8080
+    options.ListenAnyIP(444, listenOptions => listenOptions.UseHttps("/https/server.pfx", "flash7000$")); // HTTPs, SSL cert
 });
+#endregion
 
 var app = builder.Build();
+
+app.UseRouting();
+app.UseHttpsRedirection();
+app.UseStaticFiles();
 
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
-    app.UseHsts();
+    app.UseHsts();    
 }
-
-app.UseHttpsRedirection();
-app.UseStaticFiles();
-app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();

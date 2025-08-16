@@ -6,6 +6,7 @@ using Infrastructure.Services.Contracts;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.OpenApi.Models;
+using Prometheus;
 using Shared.Extensions;
 using System.Reflection;
 
@@ -67,6 +68,13 @@ builder.Services.AddDataProtection()
     .SetApplicationName("FlashTalkMessager");
 #endregion
 
+#region Kestrel
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(443, listenOptions => listenOptions.UseHttps("/https/server.pfx", "flash7000$")); // HTTPs, SSL cert
+});
+#endregion
+
 var app = builder.Build();
 
 #region Migration
@@ -82,8 +90,10 @@ if (args.Length > 0 && args[0].Equals("migrate", StringComparison.InvariantCultu
 }
 #endregion
 
-// Middleware
+#region Middleware
 app.UseMiddleware<ApiExceptionHandler>(); // Custom exception handling middleware
+app.UseHttpMetrics(); // Prometheus
+#endregion
 
 app.UseRouting();
 app.UseHttpsRedirection();
@@ -102,11 +112,13 @@ else
     //app.UseExceptionHandler("/Error");
     app.UseHsts(); // turning on HSTS (HTTP Strict Transport Security) header to inform browsers that the site should only be accessed over HTTPS
 }
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 // Register the SignalR hub route
 app.MapHub<ChatHub>("/chatHub"); 
+app.MapMetrics(); // Prometheus metrics
 app.MapControllers();
 
 await app.RunAsync();
