@@ -1,5 +1,6 @@
 ﻿using Application.Dto;
 using Client.Web.Blazor.Services.Contracts;
+using GatewayApi.Extensions;
 using Microsoft.AspNetCore.SignalR.Client;
 using System;
 using System.Collections.Generic;
@@ -41,7 +42,11 @@ namespace Client.Web.Blazor.Services
 
             Console.WriteLine($"ChatSignalServiceClient: Build SignalR hub connection to {hubUrl}...");
             _hubConnection = new HubConnectionBuilder()
-                .WithUrl(hubUrl, options => { options.AccessTokenProvider = () => Task.FromResult(accessToken)!; })
+                .WithUrl(hubUrl, options => 
+                { 
+                    options.AccessTokenProvider = () => Task.FromResult(accessToken)!;
+                    options.HttpMessageHandlerFactory = hendler => new HttpClientHandler { ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator };
+                })
                 .WithAutomaticReconnect()
                 .Build();
 
@@ -51,24 +56,16 @@ namespace Client.Web.Blazor.Services
                 Console.WriteLine($"ChatSignalServiceClient.On.ReceiveMessage: {message.Content}");
                 OnMessageReceivedAsync?.Invoke(message);
             });
-            //_hubConnection.Closed += (error) =>
-            //{
-            //    Console.WriteLine($"ChatSignalServiceClient: Connection closed with error: {error?.Message}");
-            //    return Task.CompletedTask;
-            //};
-            //_hubConnection.Reconnecting += (error) =>
-            //{
-            //    Console.WriteLine($"ChatSignalServiceClient: Reconnecting to hub due to error: {error?.Message}");
-            //    return Task.CompletedTask;
-            //};
-            //_hubConnection.Reconnected += (connectionId) =>
-            //{
-            //    Console.WriteLine($"ChatSignalServiceClient: Reconnected to hub with connection ID: {connectionId}");
-            //    return Task.CompletedTask;
-            //};
+            _hubConnection.Closed += error =>
+            {
+                ChatMetrics.ActiveUserSessions.Inc();
+                return Task.CompletedTask;
+            };
 
             Console.WriteLine("ChatSignalServiceClient: Starting SignalR hub connection...");
             await _hubConnection.StartAsync(ct);
+            ChatMetrics.ActiveUserSessions.Dec();
+
             Console.WriteLine($"ChatSignalServiceClient: Hub connection state: {_hubConnection.State}");
             return _hubConnection.State == HubConnectionState.Connected;
         }
@@ -110,10 +107,13 @@ namespace Client.Web.Blazor.Services
         {
             Console.WriteLine("ChatSignalServiceClient: Stopping SignalR hub connection...");
             if (_hubConnection != null)
-            {
                 await _hubConnection.StopAsync();
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (_hubConnection != null)
                 await _hubConnection.DisposeAsync();
-            }
         }
     }
 }

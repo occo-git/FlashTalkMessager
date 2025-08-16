@@ -90,7 +90,7 @@
 
 @code {
 
-    private const string apiClientServiceUrl = "http://flashtalk_api:8080/chatHub";
+    private const string apiClientServiceUrl = "https://flashtalk_api:443/chatHub";
     private ApiResultDto? apiResult = null;
     private bool isAuthenticated = false;
 
@@ -133,7 +133,6 @@
     }
     private async Task ChatRestart()
     {
-        //Console.WriteLine("> Restarting ChatService...");
         await ChatStopAsync();
         await ChatStartAsync();
     }
@@ -176,16 +175,16 @@
             //Console.WriteLine("> TryUpdateTokensAsync calling...");
             var tokenUpdatedResultDto = await TryAsync<TokenUpdatedResultDto?>(ApiClientService.TryUpdateTokensAsync);
             //Console.WriteLine("> TryUpdateTokensAsync called.");
-            if (tokenUpdatedResultDto == null || tokenUpdatedResultDto.TokenResponseDto == null)
+            if (tokenUpdatedResultDto == null)
             {
-                //Console.WriteLine("> TokenUpdatedResultDto is null or TokenResponseDto is null.");
+                Console.WriteLine("> TokenUpdatedResultDto is null.");
                 apiResult = new ApiResultDto { Success = false, ErrorMessage = "Failed to update tokens" };
                 await SelectMenuItemAsync(MenuItem.Login);
                 return;
             }
-            if (string.IsNullOrEmpty(tokenUpdatedResultDto.TokenResponseDto.AccessToken) || string.IsNullOrEmpty(tokenUpdatedResultDto.TokenResponseDto.RefreshToken))
+            if (string.IsNullOrEmpty(tokenUpdatedResultDto.AccessToken) || string.IsNullOrEmpty(tokenUpdatedResultDto.RefreshToken))
             {
-                //Console.WriteLine("> Access or Refresh token is empty.");
+                Console.WriteLine("> Access or Refresh token is empty.");
                 apiResult = new ApiResultDto { Success = false, ErrorMessage = "Access or Refresh token is empty" };
                 await SelectMenuItemAsync(MenuItem.Login);
                 return;
@@ -194,14 +193,14 @@
             {
                 //Console.WriteLine("> Tokens updated successfully.");
                 apiResult = new ApiResultDto { Success = true, Message = "Tokens updated" };
-                tokenResponseDto = tokenUpdatedResultDto.TokenResponseDto;
+                tokenResponseDto = new TokenResponseDto(tokenUpdatedResultDto.AccessToken, tokenUpdatedResultDto.RefreshToken);
                 await ChatRestart();
             }
             else
             {
                 //Console.WriteLine("> Tokens are still valid.");
                 apiResult = new ApiResultDto { Success = true, Message = "Tokens are still valid" };
-                tokenResponseDto = tokenUpdatedResultDto.TokenResponseDto;
+                tokenResponseDto = new TokenResponseDto(tokenUpdatedResultDto.AccessToken, tokenUpdatedResultDto.RefreshToken);
                 await ChatStartAsync();
             }
             //Console.WriteLine("> TryUpdateTokensAsync finished.");
@@ -358,5 +357,7 @@
     public async ValueTask DisposeAsync()
     {
         await ChatStopAsync();
+        await ChatService.DisposeAsync();
+
     }
 }

@@ -19,37 +19,33 @@ namespace Application.Services
             _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
-        public async Task<Connection?> GetByIdAsync(string connectionId)
+        public async Task<Connection?> GetByIdAsync(string connectionId, CancellationToken ct)
         {
             return await _context.Connections
                 .Include(c => c.User) // при необходимости загружаем пользователя
-                .FirstOrDefaultAsync(c => c.ConnectionId == connectionId);
+                .FirstOrDefaultAsync(c => c.ConnectionId == connectionId, ct);
         }
 
-        public async Task<IEnumerable<Connection>> GetAllAsync()
+        public async Task<IEnumerable<Connection>> GetAllAsync(CancellationToken ct)
         {
             return await _context.Connections
                 .Include(c => c.User)
                 .AsNoTracking()
-                .ToListAsync();
+                .ToListAsync(ct);
         }
 
-        public async Task<Connection> CreateAsync(Connection connection)
+        public async Task<Connection> CreateAsync(Connection connection, CancellationToken ct)
         {
             if (connection == null) throw new ArgumentNullException(nameof(connection));
-
-            // Обычно ConnectionId генерируется клиентом (например, SignalR connectionId)
-            // но если нужно — можно проверять или генерировать здесь
-
             connection.ConnectedAt = DateTime.UtcNow;
 
             _context.Connections.Add(connection);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(ct);
 
             return connection;
         }
 
-        public async Task<Connection> UpdateAsync(Connection connection)
+        public async Task<Connection> UpdateAsync(Connection connection, CancellationToken ct)
         {
             if (connection == null) throw new ArgumentNullException(nameof(connection));
 
@@ -60,40 +56,40 @@ namespace Application.Services
             existing.UserId = connection.UserId;
             existing.ConnectedAt = connection.ConnectedAt;
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(ct);
 
             return existing;
         }
 
-        public async Task<bool> DeleteAsync(string connectionId)
+        public async Task<bool> DeleteAsync(string connectionId, CancellationToken ct)
         {
             var connection = await _context.Connections.FindAsync(connectionId);
             if (connection == null) return false;
 
             _context.Connections.Remove(connection);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(ct);
 
             return true;
         }
 
-        public async Task<IEnumerable<Connection>> GetByUserIdAsync(Guid userId)
+        public async Task<IEnumerable<Connection>> GetByUserIdAsync(Guid userId, CancellationToken ct)
         {
             return await _context.Connections
                 .Where(c => c.UserId == userId)
                 .AsNoTracking()
-                .ToListAsync();
+                .ToListAsync(ct);
         }
 
-        public async Task<bool> DeleteByUserIdAsync(Guid userId)
+        public async Task<bool> DeleteByUserIdAsync(Guid userId, CancellationToken ct)
         {
             var connections = await _context.Connections
                 .Where(c => c.UserId == userId)
-                .ToListAsync();
+                .ToListAsync(ct);
 
             if (connections.Count == 0) return false;
 
             _context.Connections.RemoveRange(connections);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(ct);
 
             return true;
         }

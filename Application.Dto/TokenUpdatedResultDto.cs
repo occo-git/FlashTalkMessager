@@ -6,5 +6,5 @@ using System.Threading.Tasks;
 
 namespace Application.Dto
 {
-    public record TokenUpdatedResultDto(bool IsUpdated, TokenResponseDto? TokenResponseDto);
+    public record TokenUpdatedResultDto(bool IsUpdated, string AccessToken, string RefreshToken);
 }

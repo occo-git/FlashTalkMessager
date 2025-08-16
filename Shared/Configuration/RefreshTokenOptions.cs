@@ -11,6 +11,7 @@ namespace Shared.Configuration
     {
         public string Name { get; set; } = "refreshToken";
         public int ExpiresDays { get; set; } = 7; // default 7 days
-        public SameSiteMode SameSite { get; set; } = SameSiteMode.Strict;
+        public SameSiteMode SameSite { get; set; } = SameSiteMode.None;
+        public bool Secure { get; set; } = true;
     }
 }

@@ -2,6 +2,29 @@
 
 services:      
 
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - flashtalk_net1
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./certs:/etc/prometheus/certs:ro  # монтируем папку с сертификатами
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+ 
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - flashtalk_net1
+    volumes:
+      - grafana_data:/var/lib/grafana  # для сохранения данных между перезапусками
+    restart: unless-stopped
+
   flashtalk_db: 
     image: postgres 
     ports:
@@ -28,7 +51,7 @@ services:
       dockerfile: GatewayApi/Dockerfile
     #command: ["migrate"] # flag to start the migration process
     ports:
-      - "8080:8080"
+      - "443:443"
     networks:
       - flashtalk_net1
     environment:
@@ -37,6 +60,7 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     volumes:
       - data-protection-keys:/app/DataProtection-Keys
+      - ./certs:/https:ro
     depends_on:
       flashtalk_db:
         condition: service_healthy
@@ -47,7 +71,7 @@ services:
       context: .
       dockerfile: Client.Web.Blazor/Dockerfile
     ports:
-      - "5000:5000"
+      - "444:444"
     networks:
       - flashtalk_net1
     environment:
@@ -55,6 +79,7 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     volumes:
       - data-protection-keys:/app/DataProtection-Keys
+      - ./certs:/https:ro
     depends_on:
       - flashtalk_api
 
@@ -63,5 +88,6 @@ networks:
     driver: bridge
 
 volumes:
+  grafana_data:
   postgres_data:
   data-protection-keys:

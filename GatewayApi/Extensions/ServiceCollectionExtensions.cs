@@ -3,6 +3,7 @@ using Application.Services.Contracts;
 using GatewayApi.Services;
 using GatewayApi.Services.Contracts;
 using Infrastructure.Data;
+using Infrastructure.Data.Contracts;
 using Infrastructure.Repositories;
 using Infrastructure.Repositories.Contracts;
 using Infrastructure.Services;
@@ -20,7 +21,7 @@ namespace GatewayApi.Extensions
         {
             // DbContext registration with Npgsql (PostgreSQL) provider
             var connectionString = configuration.GetConnectionString(_flashTalkConnectionString);
-            services.AddDbContext<DataContext>(options => options.UseNpgsql(connectionString));
+            services.AddDbContext<IDataContext, DataContext>(options => options.UseNpgsql(connectionString));
             return services;
         }
 

@@ -1,0 +1,31 @@
+﻿global:
+  scrape_interval: 30s # как часто Prometheus будет опрашивать (scrape) все свои цели (targets) и собирать от них метрики
+  scrape_timeout: 10s # максимальное время ожидания ответа от цели метрик (target)
+
+rule_files: # секция для подключения файлов с правилами алертов и обработки метрик
+  - 'rules.yml'
+
+scrape_configs:
+  - job_name: prometheus
+    metrics_path: /metrics # путь на серверах, откуда Prometheus берёт метрики (по умолчанию /metrics)
+    static_configs:
+      - targets: ['localhost:9090'] # для метрик самого Prometheus 
+        
+  - job_name: 'backend'
+    scheme: https                                   # указываем HTTPS
+    metrics_path: /metrics
+    tls_config:
+      ca_file: /etc/prometheus/certs/server.crt     # опционально: путь к CA сертификату
+      insecure_skip_verify: true                    # опционально: отключить проверку сертификата
+    static_configs:
+      - targets: ['flashtalk_api:443']  
+  
+  # - job_name: 'frontend'
+  #   scheme: https                                   # указываем HTTPS
+  #   metrics_path: /metrics
+  #   tls_config:
+  #     ca_file: /etc/prometheus/certs/server.crt     # опционально: путь к CA сертификату
+  #     insecure_skip_verify: true                    # опционально: отключить проверку сертификата
+  #   static_configs:
+  #     - targets: ['flashtalk_client_web_blazor:444']
+  #   fallback_scrape_protocol: PrometheusText0.0.4

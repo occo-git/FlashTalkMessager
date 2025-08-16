@@ -4,6 +4,7 @@ using Application.Services.Contracts;
 using Domain.Models;
 using FluentValidation;
 using Infrastructure.Data;
+using Infrastructure.Data.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
@@ -17,11 +18,11 @@ namespace Application.Services
 {
     public class UserService : IUserService
     {
-        private readonly DataContext _context;
+        private readonly IDataContext _context;
         private readonly ILogger<UserService> _logger;
 
         public UserService(
-            DataContext context,
+            IDataContext context,
             ILogger<UserService> logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));

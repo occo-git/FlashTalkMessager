@@ -7,13 +7,12 @@ using System.Threading.Tasks;
 
 namespace Client.Web.Blazor.Services.Contracts
 {
-    public interface IChatSignalServiceClient
+    public interface IChatSignalServiceClient : IAsyncDisposable
     {
         event Func<GetMessageDto, Task>? OnMessageReceivedAsync;
         Task<bool> StartAsync(string hubUrl, string accessToken, CancellationToken ct);
         bool IsConnected { get; }
         Task<bool> SendMessageAsync(SendMessageDto message, CancellationToken ct);
-        Task StopAsync();
-        
+        Task StopAsync();        
     }
 }
