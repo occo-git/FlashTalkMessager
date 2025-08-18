@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.OpenApi.Models;
 using Prometheus;
-using Shared.Extensions;
 using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -55,6 +54,7 @@ builder.Services.AddControllers();
 builder.Services.AddValidators(); // FluentValidation registration
 builder.Services.AddInfrastructureServices(); // Infrastructure services registration
 builder.Services.AddTokenCookieService(builder.Configuration); // Token cookie service registration
+builder.Services.AddJwtAuthenticationOptions(builder.Configuration); // JWT authentication options registration
 builder.Services.AddJwtAuthentication(builder.Configuration); // JWT authentication registration
 builder.Services.AddEndpointsApiExplorer(); // Swagger/OpenAPI
 builder.Services.AddSwaggerGen(); // SwaggerGen

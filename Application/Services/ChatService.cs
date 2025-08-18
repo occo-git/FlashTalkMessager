@@ -48,13 +48,19 @@ namespace Application.Services
             return chat;
         }
 
-        public async Task<List<Message>> GetMessagesByChatIdAsync(Guid chatId, CancellationToken ct)
+        public async Task<List<Message>> GetMessagesAsync(GetMessagesRequestDto dto, CancellationToken ct)
         {
-            return await _context.Messages
-                .Where(m => m.ChatId == chatId)
-                .OrderBy(m => m.Timestamp)
+            var messages = await _context.Messages
+                .Where(m => m.ChatId == dto.ChatId)
+                .OrderByDescending(m => m.Timestamp)
+                .Skip((dto.PageNumber - 1) * dto.PageSize)
+                .Take(dto.PageSize)
                 .Include(m => m.Sender)
                 .ToListAsync(ct);
+
+            messages.Reverse();
+
+            return messages;
         }
 
         public async Task<Message> SendMessageAsync(Message message, CancellationToken ct)

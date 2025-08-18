@@ -19,6 +19,9 @@ namespace Domain.Models
         [Required]
         public Guid UserId { get; set; }
 
+        [Required]
+        public Guid DeviceId { get; set; } = Guid.NewGuid();
+
         [ForeignKey(nameof(UserId))]
         public User? User { get; set; }
 
@@ -28,11 +31,12 @@ namespace Domain.Models
 
         public bool Revoked { get; set; }
 
-        public RefreshToken(string token, Guid userId, DateTime expiresAt)
+        public RefreshToken(string token, Guid userId, DateTime expiresAt, Guid deviceId)
         {
             Id = Guid.NewGuid();
             Token = token;
             UserId = userId;
+            DeviceId = deviceId;
             ExpiresAt = expiresAt;
             Revoked = false;
         }

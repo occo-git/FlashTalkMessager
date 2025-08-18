@@ -2,7 +2,6 @@
 using Client.Web.Blazor.Services.Contracts;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
-using Shared.Extensions;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,7 +23,6 @@ builder.Logging
 #region Registration
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
-builder.Services.AddJwtAuthentication(builder.Configuration); // Register JWT authentication from Shared.Extensions
 builder.Services
     .AddHttpClient<IApiClientService, ApiClientService>(client => client.BaseAddress = new Uri("https://flashtalk_api:443/")) // Add HttpClient for API calls (Transient lifetime - created for each request)
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator }); // Отключить проверку сертификата (только для разработки!)
@@ -56,9 +54,6 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
     app.UseHsts();    
 }
-
-app.UseAuthentication();
-app.UseAuthorization();
 
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");

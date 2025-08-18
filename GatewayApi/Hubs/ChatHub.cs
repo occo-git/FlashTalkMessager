@@ -35,7 +35,7 @@ namespace GatewayApi.Hubs
         public override async Task OnConnectedAsync()
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            var connection = await GetCurrentUser(cts.Token, async (ct, userId, userName) =>
+            await GetCurrentUser(cts.Token, async (ct, userId) =>
             {
                 var connection = new Connection
                 {
@@ -43,8 +43,15 @@ namespace GatewayApi.Hubs
                     UserId = userId,
                     ConnectedAt = DateTime.UtcNow
                 };
+                await Groups.AddToGroupAsync(Context.ConnectionId, userId.ToString(), ct);
+                var createdConnection = await _connectionService.CreateAsync(connection, ct);
+                if (createdConnection == null)
+                {
+                    _logger.LogError("Failed to create connection for user {UserId}", userId);
+                    throw new InvalidOperationException("Failed to create connection");
+                }
                 _logger.LogInformation("User {UserId} connected with connection ID {ConnectionId}", userId, Context.ConnectionId);
-                return await _connectionService.CreateAsync(connection, ct);
+                return createdConnection;
             });  
             
             await base.OnConnectedAsync();
@@ -53,15 +60,31 @@ namespace GatewayApi.Hubs
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            await _connectionService.DeleteAsync(Context.ConnectionId, cts.Token);
-            _logger.LogInformation("Connection {ConnectionId} disconnected", Context.ConnectionId);
+             await GetCurrentUser(cts.Token, async (ct, userId) =>
+            {
+                var res = await _connectionService.DeleteAsync(Context.ConnectionId, cts.Token);
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, userId.ToString());
 
+                _logger.LogInformation("Connection {ConnectionId} disconnected", Context.ConnectionId);
+                return res;
+            });
             await base.OnDisconnectedAsync(exception);
+        }
+
+        private async Task<IEnumerable<Connection>> GetConnectionsByUserIdAsync(Guid userId, CancellationToken ct)
+        {
+            var connections = await _connectionService.GetByUserIdAsync(userId, ct);
+            if (connections == null || !connections.Any())
+            {
+                _logger.LogWarning("No connections found for user {UserId}", userId);
+                return Enumerable.Empty<Connection>();
+            }
+            return connections;
         }
         #endregion
 
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-        public async Task<ChatInfoDto> SendMessage(SendMessageDto message)
+        public async Task<ChatInfoDto> SendMessage(SendMessageRequestDto message)
         {
             try
             {
@@ -79,7 +102,7 @@ namespace GatewayApi.Hubs
                     if (string.IsNullOrWhiteSpace(message.Content))
                         throw new ArgumentException("Hub.SendMessage: Content cannot be empty", nameof(message.Content));
 
-                    return await GetCurrentUser(token, async (ct, userId, userName) =>
+                    return await GetCurrentUser(token, async (ct, userId) =>
                     {
                         if (message.ChatIsNew)
                         {
@@ -103,8 +126,8 @@ namespace GatewayApi.Hubs
                         Message newMessage = MessageMapper.ToDomain(message, userId);
                         var messageCreated = await _chatService.SendMessageAsync(newMessage, ct);
 
-                        await Clients.Caller.SendAsync("ReceiveMessage", MessageMapper.ToGetMessageDto(messageCreated, true), ct);
-                        await Clients.User(message.ReceiverId.ToString()).SendAsync("ReceiveMessage", MessageMapper.ToGetMessageDto(messageCreated, false), ct);
+                        await CallReceiveMessageByUserIdAsync(MessageMapper.ToGetMessageDto(messageCreated, true), userId, ct);
+                        await CallReceiveMessageByUserIdAsync(MessageMapper.ToGetMessageDto(messageCreated, false), message.ReceiverId, ct);
 
                         ApiMetrics.NewMessagesTotal.Inc();
                         return ChatMapper.ToChatInfoDto(message);
@@ -118,13 +141,22 @@ namespace GatewayApi.Hubs
             }
         }
 
+        private async Task CallReceiveMessageByUserIdAsync(GetMessageDto dto, Guid userId, CancellationToken ct)
+        {
+            if (dto == null)
+                throw new ArgumentNullException(nameof(dto), "Hub.ReceiveMessage: Message cannot be null");
+
+            var connections = await GetConnectionsByUserIdAsync(userId, ct);
+            foreach (var connection in connections)
+                await Clients.Client(connection.ConnectionId).SendAsync("ReceiveMessage", dto, ct);          
+        }
+
         private async Task<T> GetCurrentUser<T>(
             CancellationToken ct,
-            Func<CancellationToken, Guid, string, Task<T>> action)
+            Func<CancellationToken, Guid, Task<T>> action)
         {
             var id = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var name = Context.User?.FindFirst(ClaimTypes.Name)?.Value;
-            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(name))
+            if (string.IsNullOrEmpty(id))
             {
                 _logger.LogWarning("User claims not found");
                 throw new UnauthorizedAccessException("User claims not found");
@@ -132,7 +164,7 @@ namespace GatewayApi.Hubs
 
             if (Guid.TryParse(id, out var userId))
             {
-                return await action(ct, userId, name);
+                return await action(ct, userId);
             }
             else
             {

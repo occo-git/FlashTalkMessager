@@ -115,7 +115,7 @@
         }
         catch (Exception ex)
         {
-            apiResult = new ApiResultDto { Success = false, ErrorMessage = $"Error occured: {ex.Message}" };
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = $"{ex.Message}" };
         }
     }
 

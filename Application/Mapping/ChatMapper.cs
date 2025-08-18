@@ -10,7 +10,7 @@ namespace Application.Mapping
 {
     public static class ChatMapper
     {
-        public static Chat ToDomain(SendMessageDto message, Guid userId)
+        public static Chat ToDomain(SendMessageRequestDto message, Guid userId)
         {
             return new Chat
             {
@@ -36,7 +36,7 @@ namespace Application.Mapping
             };
         }
 
-        public static ChatInfoDto ToChatInfoDto(SendMessageDto message)
+        public static ChatInfoDto ToChatInfoDto(SendMessageRequestDto message)
         {
             return new ChatInfoDto
             {

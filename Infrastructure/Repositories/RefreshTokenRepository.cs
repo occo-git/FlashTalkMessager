@@ -71,26 +71,38 @@ namespace Infrastructure.Repositories
             }
         }
 
-        public async Task<RefreshToken> UpdateRefreshTokenAsync(RefreshToken newToken, string oldValue, CancellationToken ct)
+        public async Task<bool> ValidateRefreshTokenAsync(Guid userId, string deviceId, CancellationToken ct)
         {
-            //_logger.LogInformation("Updating refresh token from {OldValue} to {NewToken}", oldValue, newToken.Token);
+            _logger.LogInformation("Validating refresh token for user {UserId} and device {DeviceId}", userId, deviceId);
+            try
+            {
+                return await _context.RefreshTokens
+                    .AsNoTracking()
+                    .AnyAsync(t => t.UserId == userId && t.DeviceId.ToString() == deviceId && t.ExpiresAt < DateTime.UtcNow && !t.Revoked, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating refresh token for user {UserId} and device {DeviceId}", userId, deviceId);
+                throw;
+            }
+        }
+
+        public async Task<RefreshToken> UpdateRefreshTokenAsync(RefreshToken oldRefreshToken, RefreshToken newRefreshToken, CancellationToken ct)
+        {
+            //_logger.LogInformation("Updating refresh token from {OldValue} to {newToken}", oldRefreshToken.Token, newRefreshToken.Token);
             _logger.LogInformation("Updating refresh token");
             try
             {
-                // Find the old token by its value
-                var oldToken = await _context.RefreshTokens
-                    .FirstOrDefaultAsync(t => t.Token == oldValue, ct);
-
-                if (oldToken != null)
+                if (oldRefreshToken != null)
                 {
-                    oldToken.Revoked = true;
-                    _context.RefreshTokens.Update(oldToken);
+                    oldRefreshToken.Revoked = true;
+                    _context.RefreshTokens.Update(oldRefreshToken);
                 }
 
-                await _context.RefreshTokens.AddAsync(newToken, ct);
+                await _context.RefreshTokens.AddAsync(newRefreshToken, ct);
                 await _context.SaveChangesAsync(ct);
 
-                return newToken;
+                return newRefreshToken;
             }
             catch (Exception ex)
             {

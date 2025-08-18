@@ -14,7 +14,8 @@ namespace Infrastructure.Repositories.Contracts
     {
         Task<RefreshToken> AddRefreshTokenAsync(RefreshToken refreshToken, CancellationToken ct);
         Task<RefreshToken?> GetRefreshTokenAsync(string tokenValue, CancellationToken ct);
-        Task<RefreshToken> UpdateRefreshTokenAsync(RefreshToken newToken, string oldValue, CancellationToken ct);
         Task<int> RevokeRefreshTokensByUserIdAsync(Guid userId, CancellationToken ct);
+        Task<bool> ValidateRefreshTokenAsync(Guid userId, string deviceId, CancellationToken ct);
+        Task<RefreshToken> UpdateRefreshTokenAsync(RefreshToken oldRefreshToken, RefreshToken newRefreshToken, CancellationToken ct);
     }
 }

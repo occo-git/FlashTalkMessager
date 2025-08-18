@@ -9,7 +9,6 @@ namespace Shared.Configuration
 {
     public class AccessTokenOptions
     {
-        public string Name { get; set; } = "accessToken";
         public int ExpiresMinutes { get; set; } = 15; // default 15 minutes
         public int MinutesBeforeExpiration { get; set; } = 3; // default 3 minutes before expiration
         public SameSiteMode SameSite { get; set; } = SameSiteMode.None;

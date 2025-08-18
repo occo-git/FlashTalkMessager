@@ -5,7 +5,7 @@ namespace Application.Mapping
 {
     public static class MessageMapper
     {
-        public static Message ToDomain(SendMessageDto message, Guid senderId)
+        public static Message ToDomain(SendMessageRequestDto message, Guid senderId)
         {
             return new Message
             {

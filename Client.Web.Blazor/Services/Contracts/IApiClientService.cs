@@ -4,8 +4,8 @@ namespace Client.Web.Blazor.Services.Contracts
 {
     public interface IApiClientService
     {
-        Task<ApiResultDto> RegisterAsync(CreateUserDto newUser, CancellationToken ct);
-        Task<TokenResponseDto?> LoginAsync(LoginUserDto loginUser, CancellationToken ct);
+        Task<UserInfoDto?> RegisterAsync(CreateUserDto dto, CancellationToken ct);
+        Task<TokenResponseDto?> LoginAsync(LoginUserDto dto, CancellationToken ct);
         Task<bool> IsAuthenticatedAsync(CancellationToken ct);
         Task<bool> IsAccessSoonExpiredAsync(CancellationToken ct);
         Task<TokenUpdatedResultDto?> UpdateTokensAsync(CancellationToken ct);
@@ -14,7 +14,7 @@ namespace Client.Web.Blazor.Services.Contracts
         Task<UserInfoDto?> GetCurrentUserInfoAsync(CancellationToken ct);
       
         Task<List<ChatInfoDto>?> GetOrCreateChatsAsync(CancellationToken ct);
-        Task<List<GetMessageDto>?> GetMessagesByChatIdAsync(Guid chatId, CancellationToken ct);
-        Task<ChatInfoDto?> SendMessageAsync(SendMessageDto message, CancellationToken ct);
+        Task<List<GetMessageDto>?> GetMessagesAsync(GetMessagesRequestDto dto, CancellationToken ct);
+        Task<ChatInfoDto?> SendMessageAsync(SendMessageRequestDto dto, CancellationToken ct);
     }
 }
