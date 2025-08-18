@@ -41,6 +41,7 @@ namespace GatewayApi.Extensions
         {
             services.Configure<AccessTokenOptions>(configuration.GetSection("AccessTokenOptions"));
             services.Configure<RefreshTokenOptions>(configuration.GetSection("RefreshTokenOptions"));
+            services.Configure<DeviceCookieOptions>(configuration.GetSection("DeviceCookieOptions"));
             services.AddSingleton<ITokenCookieService, TokenCookieService>();
             return services;
         }

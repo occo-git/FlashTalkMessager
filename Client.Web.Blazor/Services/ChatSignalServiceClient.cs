@@ -1,6 +1,5 @@
 ﻿using Application.Dto;
 using Client.Web.Blazor.Services.Contracts;
-using GatewayApi.Extensions;
 using Microsoft.AspNetCore.SignalR.Client;
 using System;
 using System.Collections.Generic;
@@ -56,15 +55,9 @@ namespace Client.Web.Blazor.Services
                 Console.WriteLine($"ChatSignalServiceClient.On.ReceiveMessage: {message.Content}");
                 OnMessageReceivedAsync?.Invoke(message);
             });
-            _hubConnection.Closed += error =>
-            {
-                ChatMetrics.ActiveUserSessions.Inc();
-                return Task.CompletedTask;
-            };
 
             Console.WriteLine("ChatSignalServiceClient: Starting SignalR hub connection...");
             await _hubConnection.StartAsync(ct);
-            ChatMetrics.ActiveUserSessions.Dec();
 
             Console.WriteLine($"ChatSignalServiceClient: Hub connection state: {_hubConnection.State}");
             return _hubConnection.State == HubConnectionState.Connected;
@@ -81,7 +74,7 @@ namespace Client.Web.Blazor.Services
             }            
         }
 
-        public async Task<bool> SendMessageAsync(SendMessageDto message, CancellationToken ct)
+        public async Task<bool> SendMessageAsync(SendMessageRequestDto message, CancellationToken ct)
         {
             Console.WriteLine($"ChatSignalServiceClient: Sending message '{message.Content}' to SignalR hub...");
             if (message == null)

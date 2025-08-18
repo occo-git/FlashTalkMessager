@@ -323,6 +323,7 @@ namespace GatewayApi.Controllers
             _logger.LogInformation("Setting token cookies");
             _tokenCookieService.SetAccessTokenCookie(Response, tokenResponse.AccessToken);
             _tokenCookieService.SetRefreshTokenCookie(Response, tokenResponse.RefreshToken);
+            _tokenCookieService.SetDeviceIdCookie(Response, tokenResponse.DeviceId);
         }
 
         private string? GetRefreshTokenFromCookie()
@@ -334,7 +335,10 @@ namespace GatewayApi.Controllers
         private TokenResponseDto GetTokensFromCookies()
         {
             _logger.LogInformation("Getting tokens from cookies");
-            return new TokenResponseDto(_tokenCookieService.GetAccessTokenCookie(Request) ?? string.Empty, _tokenCookieService.GetRefreshTokenCookie(Request) ?? string.Empty);
+            return new TokenResponseDto(
+                _tokenCookieService.GetAccessTokenCookie(Request) ?? string.Empty, 
+                _tokenCookieService.GetRefreshTokenCookie(Request) ?? string.Empty,
+                _tokenCookieService.GetDeviceIdCookie(Request) ?? string.Empty);
         }            
 
         private void DeleteTokenCookies()
@@ -342,6 +346,7 @@ namespace GatewayApi.Controllers
             _logger.LogInformation("Deleting token cookies");
             _tokenCookieService.DeleteAccessTokenCookie(Response);
             _tokenCookieService.DeleteRefreshTokenCookie(Response);
+            _tokenCookieService.DeleteDeviceIdCookie(Response);
         }
         #endregion
 

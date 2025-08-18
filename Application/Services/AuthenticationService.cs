@@ -81,17 +81,17 @@ namespace Application.Services
 
         public async Task<TokenResponseDto> UpdateTokensAsync(string refreshToken, CancellationToken ct)
         {
-            var existedToken = await _refreshTokenRepository.GetRefreshTokenAsync(refreshToken, ct);
-            if (existedToken == null || existedToken.ExpiresAt < DateTime.UtcNow || existedToken.Revoked)
+            var oldRefreshToken = await _refreshTokenRepository.GetRefreshTokenAsync(refreshToken, ct);
+            if (oldRefreshToken == null || oldRefreshToken.ExpiresAt < DateTime.UtcNow || oldRefreshToken.Revoked)
                 throw new UnauthorizedAccessException("Invalid or expired refresh token.");
 
             var user = await _context.Users
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == existedToken.UserId, ct);
+                .FirstOrDefaultAsync(u => u.Id == oldRefreshToken.UserId, ct);
             if (user == null)
                 throw new KeyNotFoundException("User not found.");
 
-            return await UpdateTokens(user, refreshToken, ct);
+            return await UpdateTokens(user, oldRefreshToken, ct);
         }
 
         public async Task<int> RevokeRefreshTokensAsync(Guid userId, CancellationToken ct)
@@ -109,18 +109,24 @@ namespace Application.Services
 
             await _refreshTokenRepository.AddRefreshTokenAsync(newRefreshToken, ct);
 
-            return new TokenResponseDto(newAccessToken, newRefreshToken.Token);
+            return new TokenResponseDto(
+                newAccessToken, 
+                newRefreshToken.Token, 
+                newRefreshToken.DeviceId.ToString());
         }
-        private async Task<TokenResponseDto> UpdateTokens(User user, string refreshToken, CancellationToken ct)
+        private async Task<TokenResponseDto> UpdateTokens(User user, RefreshToken oldRefreshToken, CancellationToken ct)
         {
             _logger.LogInformation("Refreshing tokens for user: {UserId}", user.Id);
 
             var newRefreshToken = GenerateRefreshToken(user);
             var newAccessToken = GenerateAccessToken(user);
 
-            await _refreshTokenRepository.UpdateRefreshTokenAsync(newRefreshToken, refreshToken, ct);
+            await _refreshTokenRepository.UpdateRefreshTokenAsync(oldRefreshToken, newRefreshToken, ct);
 
-            return new TokenResponseDto(newAccessToken, newRefreshToken.Token);
+            return new TokenResponseDto(
+                newAccessToken, 
+                newRefreshToken.Token,
+                newRefreshToken.DeviceId.ToString());
         }
         #endregion
 
@@ -154,7 +160,11 @@ namespace Application.Services
 
             var tokenType = TokenType.Refresh;
             var expires = GetExpires(tokenType);
+            var deviceId = Guid.NewGuid(); // Generate a new device ID for the refresh token
             var claims = GetClaims(user, tokenType, expires);
+
+            // Append device ID to claims
+            claims = claims.Append(new Claim(ClaimAdditionalTypes.DeviceId, deviceId.ToString())).ToArray();
 
             // Configure JWT
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SigningKey));
@@ -170,7 +180,7 @@ namespace Application.Services
 
             var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
 
-            return new RefreshToken(jwtToken, user.Id, expires);
+            return new RefreshToken(jwtToken, user.Id, expires, deviceId);
         }
 
         private Claim[] GetClaims(User user, TokenType tokenType, DateTime expires)
@@ -183,7 +193,7 @@ namespace Application.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim("type", tokenType.ToString()),
+                new Claim(ClaimAdditionalTypes.Type, tokenType.ToString()),
                 new Claim(ClaimTypes.Expiration, expires.ToString("o")), // ISO 8601 format
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // Unique identifier for the token to make it non-replayable
             };

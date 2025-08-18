@@ -19,7 +19,8 @@ namespace Application.Mapping
             return new TokenUpdatedResultDto(
                 isUpdated,
                 dto.AccessToken,
-                dto.RefreshToken
+                dto.RefreshToken,
+                dto.DeviceId
             );
         }
 
@@ -27,7 +28,8 @@ namespace Application.Mapping
         {
             return new TokenResponseDto(
                 dto.AccessToken,
-                dto.RefreshToken
+                dto.RefreshToken,
+                dto.DeviceId
             );
         }
     }

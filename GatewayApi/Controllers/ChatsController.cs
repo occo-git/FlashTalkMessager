@@ -75,67 +75,67 @@ namespace GatewayApi.Controllers
             });
         }
 
-        // GET: api/chats/{chatId}/messages
-        [HttpGet("{chatId:guid}/messages")]
+        // POST: api/chats/messages
+        [HttpPost("messages")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-        public async Task<ActionResult<List<Message>>> GetMessagesByChatId(
-            Guid chatId,
+        public async Task<ActionResult<List<Message>>> GetMessages(
+            [FromBody] GetMessagesRequestDto dto,
             CancellationToken token)
         {
             return await GetCurrentUser<List<Message>>(token, async (ct, userId, userName) =>
             {
-                _logger.LogInformation("Getting messages for chat {ChatId}", chatId);
+                _logger.LogInformation("Getting messages for chat {ChatId}", dto.ChatId);
 
-                var messages = await _chatService.GetMessagesByChatIdAsync(chatId, ct);
-                _logger.LogInformation("Found {MessageCount} messages in chat {ChatId}", messages.Count, chatId);
+                var messages = await _chatService.GetMessagesAsync(dto, ct);
+                _logger.LogInformation("Found {MessageCount} messages in chat {ChatId}", messages.Count, dto.ChatId);
 
                 var chatMessages = messages.Select(m => MessageMapper.ToGetMessageDto(m, m.SenderId == userId)).ToList();
                 return Ok(chatMessages);
             });
         }
 
-        // POST: api/chats/messages
-        [HttpPost("messages")]
+        // POST: api/chats/send-message
+        [HttpPost("send-message")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult<ChatInfoDto>> SendMessage(
-            [FromBody] SendMessageDto message,
+            [FromBody] SendMessageRequestDto dto,
             CancellationToken token)
         {
-            if (message == null)
-                throw new ArgumentNullException(nameof(message), "Message cannot be null");
+            if (dto == null)
+                throw new ArgumentNullException(nameof(dto), "Message cannot be null");
 
-            if (message.ChatId == Guid.Empty)
-                throw new ArgumentException("Chat ID is required", nameof(message.ChatId));
+            if (dto.ChatId == Guid.Empty)
+                throw new ArgumentException("Chat ID is required", nameof(dto.ChatId));
 
-            if (string.IsNullOrWhiteSpace(message.Content))
-                throw new ArgumentException("Content cannot be empty", nameof(message.Content));
+            if (string.IsNullOrWhiteSpace(dto.Content))
+                throw new ArgumentException("Content cannot be empty", nameof(dto.Content));
 
-            _logger.LogInformation("Sending message to chat {ChatId}", message.ChatId);
+            _logger.LogInformation("Sending message to chat {ChatId}", dto.ChatId);
 
             return await GetCurrentUser<ChatInfoDto>(token, async (ct, userId, userName) =>
             {
-                if (message.ChatIsNew)
+                if (dto.ChatIsNew)
                 {
                     _logger.LogWarning("Chat is new, creating it before sending message");
 
-                    var newChat = ChatMapper.ToDomain(message, userId);
+                    var newChat = ChatMapper.ToDomain(dto, userId);
                     var createdChat = await _chatService.AddChatAsync(newChat, ct);
                     if (createdChat == null)
                         throw new InvalidOperationException("Failed to create chat");
 
                     _logger.LogInformation("Created new chat with ID {ChatId} for user {UserId}", createdChat.Id, userId);
                     // Update message with created chat details
-                    message.ChatId = createdChat.Id;
-                    message.ChatIsNew = false;
-                    message.ChatName = createdChat.Name;
+                    dto.ChatId = createdChat.Id;
+                    dto.ChatIsNew = false;
+                    dto.ChatName = createdChat.Name;
                 }
 
-                _logger.LogInformation("Sending message to chat {ChatId}", message.ChatId);
-                Message newMessage = MessageMapper.ToDomain(message, userId);
+                _logger.LogInformation("Sending message to chat {ChatId}", dto.ChatId);
+                Message newMessage = MessageMapper.ToDomain(dto, userId);
                 var messageCreated = await _chatService.SendMessageAsync(newMessage, ct);
 
                 // Returning 201 Created with a link where the new message can be accessed
-                return Ok(ChatMapper.ToChatInfoDto(message));
+                return Ok(ChatMapper.ToChatInfoDto(dto));
             });
         }
 

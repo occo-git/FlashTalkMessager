@@ -100,6 +100,62 @@
         await IsAuthenticatedAsync();
     }
 
+    #region Api Client Service
+    private async Task IsAuthenticatedAsync()
+    {
+        isAuthenticated = await TryAsync(ApiClientService.IsAuthenticatedAsync);
+        if (isAuthenticated)
+        {
+            apiResult = new ApiResultDto { Success = true, Message = "Authenticated" };
+        }
+        else
+        {
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = "Not authenticated" };
+            await SelectMenuItemAsync(MenuItem.Login);
+        }
+    }
+
+    private async Task TryUpdateTokensAsync()
+    {
+        //await IsAuthenticatedAsync();
+        if (isAuthenticated)
+        {
+            //Console.WriteLine("> TryUpdateTokensAsync calling...");
+            var dto = await TryAsync<TokenUpdatedResultDto?>(ApiClientService.TryUpdateTokensAsync);
+            //Console.WriteLine("> TryUpdateTokensAsync called.");
+            if (dto == null)
+            {
+                Console.WriteLine("> TokenUpdatedResultDto is null.");
+                apiResult = new ApiResultDto { Success = false, ErrorMessage = "Failed to update tokens" };
+                await SelectMenuItemAsync(MenuItem.Login);
+                return;
+            }
+            if (dto.IsNullOrEmpty)
+            {
+                Console.WriteLine("> Access token or Refresh token or DeviceId is empty.");
+                apiResult = new ApiResultDto { Success = false, ErrorMessage = "Access token or Refresh token or DiviceId is empty" };
+                await SelectMenuItemAsync(MenuItem.Login);
+                return;
+            }
+            if (dto.IsUpdated)
+            {
+                //Console.WriteLine("> Tokens updated successfully.");
+                apiResult = new ApiResultDto { Success = true, Message = "Tokens updated" };
+                tokenResponseDto = new TokenResponseDto(dto);
+                await ChatRestart();
+            }
+            else
+            {
+                //Console.WriteLine("> Tokens are still valid.");
+                apiResult = new ApiResultDto { Success = true, Message = "Tokens are still valid" };
+                tokenResponseDto = new TokenResponseDto(dto);
+                await ChatStartAsync();
+            }
+            //Console.WriteLine("> TryUpdateTokensAsync finished.");
+        }
+    }
+    #endregion
+
     #region Chat Signal Service
     private TokenResponseDto? tokenResponseDto = null;
     private async Task ChatStartAsync()
@@ -136,82 +192,21 @@
         await ChatStopAsync();
         await ChatStartAsync();
     }
-    private async Task ChatSendMessage(SendMessageDto message)
+    private async Task OnChatSendMessage(SendMessageRequestDto message)
     {
         await TryUpdateTokensAsync();
-        if (selectedChat != null)
-        {
-            await TryAsync(ct => ChatService.SendMessageAsync(message, ct));
-            await GetMessagesAsync();
-        }
+        await TryAsync(ct => ChatService.SendMessageAsync(message, ct));
     }
     private async Task OnChatMessageReceived(GetMessageDto message)
     {
-        Console.WriteLine($"MainLayout.ChatService.OnMessageReceivedAsync: {message.Content}");
-        await GetMessagesAsync();
-    }
-    #endregion
-
-    #region Api Client Service
-    private async Task IsAuthenticatedAsync()
-    {
-        isAuthenticated = await TryAsync(ApiClientService.IsAuthenticatedAsync);
-        if (isAuthenticated)
-        {
-            apiResult = new ApiResultDto { Success = true, Message = "Authenticated" };
-        }
-        else
-        {
-            apiResult = new ApiResultDto { Success = false, ErrorMessage = "Not authenticated" };
-            await SelectMenuItemAsync(MenuItem.Login);
-        }
-    }
-
-    private async Task TryUpdateTokensAsync()
-    {
-        //await IsAuthenticatedAsync();
-        if (isAuthenticated)
-        {
-            //Console.WriteLine("> TryUpdateTokensAsync calling...");
-            var tokenUpdatedResultDto = await TryAsync<TokenUpdatedResultDto?>(ApiClientService.TryUpdateTokensAsync);
-            //Console.WriteLine("> TryUpdateTokensAsync called.");
-            if (tokenUpdatedResultDto == null)
-            {
-                Console.WriteLine("> TokenUpdatedResultDto is null.");
-                apiResult = new ApiResultDto { Success = false, ErrorMessage = "Failed to update tokens" };
-                await SelectMenuItemAsync(MenuItem.Login);
-                return;
-            }
-            if (string.IsNullOrEmpty(tokenUpdatedResultDto.AccessToken) || string.IsNullOrEmpty(tokenUpdatedResultDto.RefreshToken))
-            {
-                Console.WriteLine("> Access or Refresh token is empty.");
-                apiResult = new ApiResultDto { Success = false, ErrorMessage = "Access or Refresh token is empty" };
-                await SelectMenuItemAsync(MenuItem.Login);
-                return;
-            }
-            if (tokenUpdatedResultDto.IsUpdated)
-            {
-                //Console.WriteLine("> Tokens updated successfully.");
-                apiResult = new ApiResultDto { Success = true, Message = "Tokens updated" };
-                tokenResponseDto = new TokenResponseDto(tokenUpdatedResultDto.AccessToken, tokenUpdatedResultDto.RefreshToken);
-                await ChatRestart();
-            }
-            else
-            {
-                //Console.WriteLine("> Tokens are still valid.");
-                apiResult = new ApiResultDto { Success = true, Message = "Tokens are still valid" };
-                tokenResponseDto = new TokenResponseDto(tokenUpdatedResultDto.AccessToken, tokenUpdatedResultDto.RefreshToken);
-                await ChatStartAsync();
-            }
-            //Console.WriteLine("> TryUpdateTokensAsync finished.");
-        }
+        //Console.WriteLine($"MainLayout.ChatService.OnMessageReceivedAsync: {message.Content}");
+        await TryAsync(ct => chatMessages.Refresh(ct));
     }
     #endregion
 
     #region Chats
     private List<ChatInfoDto>? chats;
-    private ChatInfoDto? selectedChat;
-    private List<GetMessageDto>? messages;
+    private ChatMessages chatMessages = null!;
 
     private async Task LoadChatsAsync()
     {
@@ -220,16 +215,8 @@
 
     private async Task SelectChat(ChatInfoDto chat)
     {
-        selectedChat = chat;
-        await GetMessagesAsync();
-
-    }
-    private async Task GetMessagesAsync()
-    {
-        if (selectedChat != null)
-            messages = await TryAsync(ct => ApiClientService.GetMessagesByChatIdAsync(selectedChat.Id, ct));
-        else
-            messages = null;
+        if (chatMessages != null)
+            await TryAsync(ct => chatMessages.SetChat(chat, ct));
     }
     #endregion
 
@@ -274,7 +261,7 @@
         if (menu == MenuItem.Messages)
             await LoadChatsAsync();
         else
-            selectedChat = null;
+            await SelectChat(null!);
     }
     #endregion
 
@@ -284,7 +271,7 @@
         MenuItem.Profile => @<UserProfile OnGoToLogin="OnGoToLogin" OnGoToRegister="OnGoToRegister" />,
         MenuItem.Login => @<LoginForm OnLoginSuccess="OnLoginSuccess" OnGoToRegister="OnGoToRegister" />,
         MenuItem.Register => @<RegisterForm OnRegisterSuccess="OnRegisterSuccess" OnGoToLogin="OnGoToLogin" />,
-        MenuItem.Messages => selectedChat is null ? @<SelectChat /> : @<ChatMessages SelectedChat="@selectedChat" Messages="@messages" OnSendMessage="ChatSendMessage" />,
+        MenuItem.Messages => @<ChatMessages @ref="chatMessages" OnSendMessage="OnChatSendMessage" />,
         MenuItem.Settings => @<Settings />,
         MenuItem.Logout => @<LogoutForm OnLogoutSuccess="OnLogoutSuccess" />,
         _ => @<Welcome />
@@ -348,7 +335,7 @@
         }
         catch (Exception ex)
         {
-            apiResult = new ApiResultDto { Success = false, ErrorMessage = $"Error occured: {ex.Message}" };
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = $"{ex.Message}" };
             Console.WriteLine($"Error: {ex.Message}, {ex.StackTrace}");
             return default!;
         }

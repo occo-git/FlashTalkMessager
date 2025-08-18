@@ -5,73 +5,79 @@
 @inject IApiClientService ApiClientService
 
 <div class="chat-container">
-    @if (SelectedChat == null)
+    @if (selectedChat == null)
     {
-        <div class="error">Чат не найден</div>
+        <div class ="chat-title">← Select a chat</div>
     }
     else
     {
-        <div class="chat-title">@SelectedChat.Name</div>
-    }    
+        <div class="chat-title">@selectedChat.Name</div>
+    }
     <div class="messages-area" @ref="messagesDivRef">
-        @if (Messages == null || Messages.Count == 0)
+        @if (chatMessages == null || chatMessages.Count == 0)
         {
             <div class="no-messages">No messages</div>
         }
         else
         {
-            @foreach (var msg in Messages)
+            @foreach (var msg in chatMessages)
             {
                 <ChatMessage Text="@msg.Content" IsMine="@msg.IsMine" />
             }
         }
     </div>
 
-    <div class="input-area">
-        <input @bind="newMessageContent" @bind:event="oninput" @onkeydown="HandleKeyDown" placeholder="Enter your message..." />
-        @* <button class="btn btn-send" @onclick="SendMessage" disabled="!@isNewMessage">&#10548;</button> *@
-    </div>
+    @if (selectedChat != null)
+    {
+        <div class="input-area">
+            <input @bind="newMessageContent" @bind:event="oninput" @onkeydown="HandleKeyDown" placeholder="Enter your message..." />
+            @* <button class="btn btn-send" @onclick="SendMessage" disabled="!@isNewMessage">&#10548;</button> *@
+        </div>
+    }
 </div>
 
 @code {
-    [Parameter] public ChatInfoDto SelectedChat { get; set; } = null!;
-    [Parameter] public List<GetMessageDto>? Messages { get; set; } = null;
-    [Parameter] public EventCallback<SendMessageDto> OnSendMessage { get; set; }
+    [Parameter] public EventCallback<SendMessageRequestDto> OnSendMessage { get; set; }
 
+    private ChatInfoDto? selectedChat = null;
+    private List<GetMessageDto>? chatMessages = null;
     private string newMessageContent = string.Empty;
-    private bool isChat { get => SelectedChat != null; }
     private bool isNewMessage { get => !string.IsNullOrWhiteSpace(newMessageContent); }
     private ElementReference messagesDivRef;
 
-    private async Task SendMessage()
+    public async Task<bool> SetChat(ChatInfoDto? chat, CancellationToken ct)
     {
-        if (isChat && isNewMessage)
+        selectedChat = chat;
+        if (selectedChat != null)
         {
-            if (OnSendMessage.HasDelegate)
+            var dto = new GetMessagesRequestDto
             {
-                var message = new SendMessageDto
-                {
-                    ChatId = SelectedChat.Id,
-                    ChatIsNew = SelectedChat.IsNew,
-                    ChatName = SelectedChat.Name,
-                    ReceiverId = SelectedChat.ReceiverId,
-                    Content = newMessageContent
-                };
-                await OnSendMessage.InvokeAsync(message);
-            }
+                ChatId = selectedChat.Id,
+                PageNumber = 1,
+                PageSize = 20,
+            };
+            var messages = await ApiClientService.GetMessagesAsync(dto, ct);
+            chatMessages = messages;
+            await OnMessagesChanged();
+            return true;
+        }
+        else
+        {
+            chatMessages = null;
+            await OnMessagesChanged();
+            return false;
         }
     }
-
-    protected override async Task OnParametersSetAsync()
+    public async Task<bool> Refresh(CancellationToken ct)
     {
-        await base.OnParametersSetAsync();
-
-        if (Messages != null && Messages.Count > 0)
-        {
-            await Task.Delay(500);
-            await ScrollToBottom();
-            newMessageContent = string.Empty;
-        }
+        return await SetChat(selectedChat, ct);
+    }
+    private async Task OnMessagesChanged()
+    {
+        await Task.Delay(500);
+        newMessageContent = string.Empty;
+        await InvokeAsync(StateHasChanged);
+        await ScrollToBottom();
     }
 
     // Send message on Enter key press
@@ -80,6 +86,25 @@
         if (e.Key == "Enter")
         {
             await SendMessage();
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (selectedChat != null && isNewMessage)
+        {
+            if (OnSendMessage.HasDelegate)
+            {
+                var message = new SendMessageRequestDto
+                {
+                    ChatId = selectedChat.Id,
+                    ChatIsNew = selectedChat.IsNew,
+                    ChatName = selectedChat.Name,
+                    ReceiverId = selectedChat.ReceiverId,
+                    Content = newMessageContent
+                };
+                await OnSendMessage.InvokeAsync(message);
+            }
         }
     }
 

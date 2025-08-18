@@ -16,19 +16,19 @@ namespace Client.Web.Blazor.Services
         }
 
         #region User Management
-        public async Task<ApiResultDto> RegisterAsync(CreateUserDto newUser, CancellationToken ct)
+        public async Task<UserInfoDto?> RegisterAsync(CreateUserDto dto, CancellationToken ct)
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.PostAsJsonAsync("api/users/register", newUser, _ct);
-                return await LogResponseAsync(response, "Registration successful", "Registration failed");
+                var response = await _httpClient.PostAsJsonAsync("api/users/register", dto, _ct);
+                return await LogResponseAsync<UserInfoDto>(response, "Registration successful", "Registration failed");
             });
         }
-        public async Task<TokenResponseDto?> LoginAsync(LoginUserDto loginUser, CancellationToken ct)
+        public async Task<TokenResponseDto?> LoginAsync(LoginUserDto dto, CancellationToken ct)
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.PostAsJsonAsync("api/users/login", loginUser, _ct);
+                var response = await _httpClient.PostAsJsonAsync("api/users/login", dto, _ct);
                 return await LogResponseAsync<TokenResponseDto>(response, "Login successful", "Login failed");
             });
         }
@@ -91,52 +91,23 @@ namespace Client.Web.Blazor.Services
                 return await LogResponseAsync<List<ChatInfoDto>>(response, "Get or create chats by user ID successful", "Get or create chats by user ID failed");
             });
         }
-        public async Task<List<GetMessageDto>?> GetMessagesByChatIdAsync(Guid chatId, CancellationToken ct)
+        public async Task<List<GetMessageDto>?> GetMessagesAsync(GetMessagesRequestDto dto, CancellationToken ct)
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.GetAsync($"api/chats/{chatId}/messages", _ct);
+                var response = await _httpClient.PostAsJsonAsync($"api/chats/messages", dto, _ct);
                 return await LogResponseAsync<List<GetMessageDto>>(response, "Get messages successful", "Get messages failed");
             });
         }
-        public async Task<ChatInfoDto?> SendMessageAsync(SendMessageDto message, CancellationToken ct)
+        public async Task<ChatInfoDto?> SendMessageAsync(SendMessageRequestDto dto, CancellationToken ct)
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.PostAsJsonAsync("api/chats/messages", message, _ct);
+                var response = await _httpClient.PostAsJsonAsync("api/chats/send-message", dto, _ct);
                 return await LogResponseAsync<ChatInfoDto>(response, "Send message successful", "Send message failed");
             });
         }
         #endregion
-
-        private async Task<ApiResultDto> LogResponseAsync(HttpResponseMessage response, string successLogMessage, string failureLogMessage)
-        {
-            if (response.IsSuccessStatusCode)
-            {
-                _logger.LogInformation("{successLogMessage} (StatusCode: {statusCode})", successLogMessage, response.StatusCode);
-                return new ApiResultDto { Success = true, Message = successLogMessage };
-            }
-            else
-            {
-                _logger.LogWarning("Response was not successful: {statusCode}", response.StatusCode);
-                ApiErrorResponseDto? apiErrorResponseDto = null;
-                try
-                {
-                    if (response.Content != null)
-                        apiErrorResponseDto = await response.Content.ReadFromJsonAsync<ApiErrorResponseDto>();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning("Failed to deserialize error response: {exceptionMessage}", ex.Message);
-                }
-                _logger.LogError("{failureLogMessage}: {errorString} (StatusCode: {statusCode})", failureLogMessage, apiErrorResponseDto?.Detail, response.StatusCode);
-                return new ApiResultDto
-                {
-                    Success = false,
-                    ErrorMessage = $"{failureLogMessage}: {apiErrorResponseDto?.Detail}"
-                };
-            }
-        }
 
         private async Task<T?> LogResponseAsync<T>(HttpResponseMessage response, string successLogMessage, string failureLogMessage)
         {
@@ -163,7 +134,7 @@ namespace Client.Web.Blazor.Services
                     detail = await response.Content.ReadAsStringAsync();
                 }
                 _logger.LogError("{failureLogMessage}: {errorString} (StatusCode: {statusCode})", failureLogMessage, detail, response.StatusCode);
-                return default(T);
+                throw new HttpRequestException($"{failureLogMessage}: {detail}");
             }
         }
 

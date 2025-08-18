@@ -13,7 +13,7 @@ namespace Application.Services.Contracts
         Task<Chat?> GetByIdAsync(Guid id, CancellationToken ct);
         Task<List<Chat>> GetChatsByUserIdAsync(Guid userId, CancellationToken ct);
         Task<Chat> AddChatAsync(Chat chat, CancellationToken ct);
-        Task<List<Message>> GetMessagesByChatIdAsync(Guid chatId, CancellationToken ct);
+        Task<List<Message>> GetMessagesAsync(GetMessagesRequestDto dto, CancellationToken ct);
         Task<Message> SendMessageAsync(Message message, CancellationToken ct);
     }
 }

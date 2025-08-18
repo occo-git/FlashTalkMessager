@@ -4,6 +4,6 @@ namespace Application.Services.Contracts
 {
     public interface IChatSignalService
     {
-        Task<ChatInfoDto> SendMessageAsync(SendMessageDto message, Guid userId, CancellationToken ct);
+        Task<ChatInfoDto> SendMessageAsync(SendMessageRequestDto message, Guid userId, CancellationToken ct);
     }
 }

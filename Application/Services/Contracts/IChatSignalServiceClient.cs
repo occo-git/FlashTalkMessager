@@ -12,6 +12,6 @@ namespace Application.Services.Contracts
         event Action<GetMessageDto>? OnMessageReceived;
         Task StartAsync(string hubUrl);
         Task StopAsync();
-        Task<ChatInfoDto> SendMessageAsync(SendMessageDto message, CancellationToken cancellationToken);
+        Task<ChatInfoDto> SendMessageAsync(SendMessageRequestDto message, CancellationToken cancellationToken);
     }
 }

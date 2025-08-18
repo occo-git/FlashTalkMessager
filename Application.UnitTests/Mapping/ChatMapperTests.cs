@@ -9,7 +9,7 @@ namespace Application.UnitTests.Mapping
         [Fact]
         public void ToDomain_ShouldMapCorrectly()
         {
-            var message = new SendMessageDto
+            var message = new SendMessageRequestDto
             {
                 ChatId = Guid.NewGuid(),
                 ChatName = "Test Chat",
@@ -75,7 +75,7 @@ namespace Application.UnitTests.Mapping
         [Fact]
         public void ToChatInfoDto_ShouldMapCorrectly()
         {
-            var message = new SendMessageDto
+            var message = new SendMessageRequestDto
             {
                 ChatId = Guid.NewGuid(),
                 ChatName = "Chat Name",
