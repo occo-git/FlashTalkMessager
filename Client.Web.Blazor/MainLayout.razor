@@ -1,4 +1,5 @@
-﻿@using Client.Web.Blazor.Shared
+﻿@using Client.Web.Blazor.SessionId
+@using Client.Web.Blazor.Shared
 @using Client.Web.Blazor.Shared.Chat
 @using Client.Web.Blazor.Shared.Icons
 @using Client.Web.Blazor.Pages
@@ -6,15 +7,20 @@
 @using System.Text.Json
 @using Client.Web.Blazor.Services.Contracts
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using global::Shared
 @inherits LayoutComponentBase
 @inject IApiClientService ApiClientService
 @inject NavigationManager NavigationManager
 @inject IChatSignalServiceClient ChatService
+@inject ProtectedSessionStorage sessionStorage
+@inject SessionAccessor sessionAccessor
 
 <div class="messenger-layout">
     <header class="header">
         <button class="menu-btn" @onclick="ToggleSidebar">&#9776;</button>
         <h1>FlashTalk Messenger</h1>
+        <div>@sessionAccessor.SessionId</div>
     </header>
 
     <div class="content">
@@ -90,14 +96,32 @@
 
 @code {
 
-    private const string apiClientServiceUrl = "https://flashtalk_api:443/chatHub";
     private ApiResultDto? apiResult = null;
     private bool isAuthenticated = false;
 
-    protected override async Task OnInitializedAsync()
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        Console.WriteLine("> MainLayout initialized");
-        await IsAuthenticatedAsync();
+        Console.WriteLine("> MainLayout .OnAfterRenderAsync called.");
+        if (firstRender)
+        {
+            await GetSessionIdAsync();
+            await IsAuthenticatedAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task GetSessionIdAsync()
+    {
+        var result = await sessionStorage.GetAsync<string>(HeaderNames.SessionId);
+        if (result.Success && !string.IsNullOrEmpty(result.Value))
+            sessionAccessor.SessionId = result.Value;
+        else
+        {
+            sessionAccessor.SessionId = Guid.NewGuid().ToString();
+            await sessionStorage.SetAsync(HeaderNames.SessionId, sessionAccessor.SessionId);
+        }
+        Console.WriteLine($">>>>>>>>>>> SessionId: {sessionAccessor.SessionId}");
     }
 
     #region Api Client Service
@@ -132,8 +156,8 @@
             }
             if (dto.IsNullOrEmpty)
             {
-                Console.WriteLine("> Access token or Refresh token or DeviceId is empty.");
-                apiResult = new ApiResultDto { Success = false, ErrorMessage = "Access token or Refresh token or DiviceId is empty" };
+                Console.WriteLine("> Access or Refresh token is empty.");
+                apiResult = new ApiResultDto { Success = false, ErrorMessage = "Access or Refresh token is empty" };
                 await SelectMenuItemAsync(MenuItem.Login);
                 return;
             }
@@ -175,7 +199,7 @@
         else
         {
             Console.WriteLine("> Starting ChatService...");
-            await TryAsync(ct => ChatService.StartAsync(apiClientServiceUrl, tokenResponseDto.AccessToken, ct));
+            await TryAsync(ct => ChatService.StartAsync(tokenResponseDto, sessionAccessor.SessionId, ct));
             ChatService.OnMessageReceivedAsync += OnChatMessageReceived;
             Console.WriteLine("> ChatService started.");
         }
@@ -336,7 +360,7 @@
         catch (Exception ex)
         {
             apiResult = new ApiResultDto { Success = false, ErrorMessage = $"{ex.Message}" };
-            Console.WriteLine($"Error: {ex.Message}, {ex.StackTrace}");
+            //Console.WriteLine($"Error: {ex.Message}, {ex.StackTrace}");
             return default!;
         }
     }

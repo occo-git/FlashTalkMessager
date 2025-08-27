@@ -1,4 +1,5 @@
-﻿using Client.Web.Blazor.Services;
+﻿using Client.Web.Blazor.Extensions;
+using Client.Web.Blazor.Services;
 using Client.Web.Blazor.Services.Contracts;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -23,10 +24,7 @@ builder.Logging
 #region Registration
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
-builder.Services
-    .AddHttpClient<IApiClientService, ApiClientService>(client => client.BaseAddress = new Uri("https://flashtalk_api:443/")) // Add HttpClient for API calls (Transient lifetime - created for each request)
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator }); // Отключить проверку сертификата (только для разработки!)
-builder.Services.AddScoped<IChatSignalServiceClient, ChatSignalServiceClient>();
+builder.Services.AddHttpServices(builder.Configuration);
 #endregion
 
 #region Data Protection

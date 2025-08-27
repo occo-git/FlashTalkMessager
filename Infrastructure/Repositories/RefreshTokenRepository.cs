@@ -71,18 +71,18 @@ namespace Infrastructure.Repositories
             }
         }
 
-        public async Task<bool> ValidateRefreshTokenAsync(Guid userId, string deviceId, CancellationToken ct)
+        public async Task<bool> ValidateRefreshTokenAsync(Guid userId, string sessionId, CancellationToken ct)
         {
-            _logger.LogInformation("Validating refresh token for user {UserId} and device {DeviceId}", userId, deviceId);
+            _logger.LogInformation("Validating refresh token for user {UserId} and session {SessionId}", userId, sessionId);
             try
             {
                 return await _context.RefreshTokens
                     .AsNoTracking()
-                    .AnyAsync(t => t.UserId == userId && t.DeviceId.ToString() == deviceId && t.ExpiresAt < DateTime.UtcNow && !t.Revoked, ct);
+                    .AnyAsync(t => t.UserId == userId && t.SessionId == sessionId && t.ExpiresAt > DateTime.UtcNow && !t.Revoked, ct);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error validating refresh token for user {UserId} and device {DeviceId}", userId, deviceId);
+                _logger.LogError(ex, "Error validating refresh token for user {UserId} and session {SessionId}", userId, sessionId);
                 throw;
             }
         }

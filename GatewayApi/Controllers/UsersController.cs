@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Shared;
 using System.Data;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
@@ -137,10 +138,16 @@ namespace GatewayApi.Controllers
             if (user == null)
                 throw new ArgumentNullException(nameof(user), "User cannot be null");
 
+            var sessionId = GetSessionIdFromHeader();
+            if (string.IsNullOrWhiteSpace(sessionId))
+                throw new ArgumentNullException(nameof(sessionId), "Session ID is required.");
+
+            _logger.LogInformation("Login request received for User: {Username}, SessionId: {SessionId}", user.Username, sessionId);
+
             await validator.ValidationCheck(user);
 
             _logger.LogInformation("Authenticate user: {Username}", user.Username);
-            var tokenResponse = await _authenticationService.AuthenticateAsync(user, ct);
+            var tokenResponse = await _authenticationService.AuthenticateAsync(user, sessionId, ct);
 
             SetTokenCookies(tokenResponse);
 
@@ -226,7 +233,7 @@ namespace GatewayApi.Controllers
             }
 
             _logger.LogInformation("Update tokens");
-            var tokenResponse = await _authenticationService.UpdateTokensAsync(refreshToken, ct);
+            var tokenResponse = await _authenticationService.UpdateTokensAsync(refreshToken, GetSessionIdFromHeader(), ct);
             if (tokenResponse == null)
             {
                 _logger.LogWarning("Failed to update tokens");
@@ -262,7 +269,7 @@ namespace GatewayApi.Controllers
             else
             {
                 _logger.LogInformation("Access token is not soon expired, no need to update tokens");
-                return Ok(TokenMapper.ToUpdateDto(false, GetTokensFromCookies()));
+                return Ok(TokenMapper.ToUpdateDto(false, GetTokenResponseDto()));
             }
         }
         #endregion
@@ -323,7 +330,6 @@ namespace GatewayApi.Controllers
             _logger.LogInformation("Setting token cookies");
             _tokenCookieService.SetAccessTokenCookie(Response, tokenResponse.AccessToken);
             _tokenCookieService.SetRefreshTokenCookie(Response, tokenResponse.RefreshToken);
-            _tokenCookieService.SetDeviceIdCookie(Response, tokenResponse.DeviceId);
         }
 
         private string? GetRefreshTokenFromCookie()
@@ -332,13 +338,12 @@ namespace GatewayApi.Controllers
             return _tokenCookieService.GetRefreshTokenCookie(Request);
         }
 
-        private TokenResponseDto GetTokensFromCookies()
+        private TokenResponseDto GetTokenResponseDto()
         {
             _logger.LogInformation("Getting tokens from cookies");
             return new TokenResponseDto(
                 _tokenCookieService.GetAccessTokenCookie(Request) ?? string.Empty, 
-                _tokenCookieService.GetRefreshTokenCookie(Request) ?? string.Empty,
-                _tokenCookieService.GetDeviceIdCookie(Request) ?? string.Empty);
+                _tokenCookieService.GetRefreshTokenCookie(Request) ?? string.Empty);
         }            
 
         private void DeleteTokenCookies()
@@ -346,9 +351,13 @@ namespace GatewayApi.Controllers
             _logger.LogInformation("Deleting token cookies");
             _tokenCookieService.DeleteAccessTokenCookie(Response);
             _tokenCookieService.DeleteRefreshTokenCookie(Response);
-            _tokenCookieService.DeleteDeviceIdCookie(Response);
         }
         #endregion
+
+        private string GetSessionIdFromHeader()
+        {
+            return Request.Headers[HeaderNames.SessionId].FirstOrDefault() ?? string.Empty;
+        }
 
         private async Task<ActionResult<T>> GetCurrentUser<T>(
             CancellationToken ct,

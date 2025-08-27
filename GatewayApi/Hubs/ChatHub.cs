@@ -126,8 +126,8 @@ namespace GatewayApi.Hubs
                         Message newMessage = MessageMapper.ToDomain(message, userId);
                         var messageCreated = await _chatService.SendMessageAsync(newMessage, ct);
 
-                        await CallReceiveMessageByUserIdAsync(MessageMapper.ToGetMessageDto(messageCreated, true), userId, ct);
-                        await CallReceiveMessageByUserIdAsync(MessageMapper.ToGetMessageDto(messageCreated, false), message.ReceiverId, ct);
+                        await CallReceiveMessageByUserIdAsync(messageCreated, true, userId, ct);
+                        await CallReceiveMessageByUserIdAsync(messageCreated, false, message.ReceiverId, ct);
 
                         ApiMetrics.NewMessagesTotal.Inc();
                         return ChatMapper.ToChatInfoDto(message);
@@ -141,8 +141,9 @@ namespace GatewayApi.Hubs
             }
         }
 
-        private async Task CallReceiveMessageByUserIdAsync(GetMessageDto dto, Guid userId, CancellationToken ct)
+        private async Task CallReceiveMessageByUserIdAsync(Message message, bool isMine, Guid userId, CancellationToken ct)
         {
+            var dto = MessageMapper.ToGetMessageDto(message, isMine);
             if (dto == null)
                 throw new ArgumentNullException(nameof(dto), "Hub.ReceiveMessage: Message cannot be null");
 

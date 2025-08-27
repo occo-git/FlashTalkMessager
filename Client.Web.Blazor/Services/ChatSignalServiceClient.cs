@@ -1,9 +1,14 @@
 ﻿using Application.Dto;
 using Client.Web.Blazor.Services.Contracts;
+using Client.Web.Blazor.SessionId;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.Options;
+using Shared;
+using Shared.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -12,10 +17,20 @@ namespace Client.Web.Blazor.Services
     public class ChatSignalServiceClient : IChatSignalServiceClient
     {
         private HubConnection? _hubConnection;
+        private readonly string _hubUrl = String.Empty;
 
         public event Func<GetMessageDto, Task>? OnMessageReceivedAsync;
 
-        public async Task<bool> StartAsync(string hubUrl, string accessToken, CancellationToken ct)
+        public ChatSignalServiceClient(
+            IOptions<ApiSettings> apiSettings)
+        {
+            var _apiSettings = apiSettings?.Value ?? throw new ArgumentNullException(nameof(apiSettings), "ApiSettings cannot be null");
+            _hubUrl = _apiSettings.SignalRHubUrl.TrimEnd('/');
+
+            Console.WriteLine($"ChatSignalServiceClient: Initializing with Hub URL: {_hubUrl}");
+        }
+
+        public async Task<bool> StartAsync(TokenResponseDto tokenResponseDto, string sessionId, CancellationToken ct)
         {
             if (_hubConnection != null)
             {
@@ -34,17 +49,19 @@ namespace Client.Web.Blazor.Services
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(hubUrl))
-                throw new ArgumentException("ChatSignalServiceClient: Hub URL cannot be null or empty", nameof(hubUrl));
-            if (string.IsNullOrWhiteSpace(accessToken))
-                throw new ArgumentException("ChatSignalServiceClient: Access token cannot be null or empty", nameof(accessToken));
+            if (string.IsNullOrWhiteSpace(_hubUrl))
+                throw new ArgumentException("ChatSignalServiceClient: Hub URL cannot be null or empty", nameof(_hubUrl));
+            if (tokenResponseDto == null)
+                throw new ArgumentException("ChatSignalServiceClient: TokenResponseDto cannot be null", nameof(tokenResponseDto));
 
-            Console.WriteLine($"ChatSignalServiceClient: Build SignalR hub connection to {hubUrl}...");
+            Console.WriteLine($"ChatSignalServiceClient: Build SignalR hub connection to {_hubUrl}...");
             _hubConnection = new HubConnectionBuilder()
-                .WithUrl(hubUrl, options => 
-                { 
-                    options.AccessTokenProvider = () => Task.FromResult(accessToken)!;
-                    options.HttpMessageHandlerFactory = hendler => new HttpClientHandler { ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator };
+                .WithUrl(_hubUrl, options => 
+                {
+                    options.Headers.Add(HeaderNames.SessionId, sessionId); 
+                    options.AccessTokenProvider = () => Task.FromResult(tokenResponseDto.AccessToken)!;
+                    options.HttpMessageHandlerFactory = hendler => 
+                        new HttpClientHandler { ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator }; // Disable SSL certificate validation (only for development!)
                 })
                 .WithAutomaticReconnect()
                 .Build();

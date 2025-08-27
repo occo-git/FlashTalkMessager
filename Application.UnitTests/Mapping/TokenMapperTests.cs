@@ -13,7 +13,7 @@ namespace Application.UnitTests.Mapping
         [Fact]
         public void ToUpdateDto_ShouldMapCorrectly()
         {
-            var tokenResponse = new TokenResponseDto("access-token", "refresh-token", "device-id");
+            var tokenResponse = new TokenResponseDto("access-token", "refresh-token");
             bool isUpdated = true;
 
             var resultDto = TokenMapper.ToUpdateDto(isUpdated, tokenResponse);
@@ -21,19 +21,17 @@ namespace Application.UnitTests.Mapping
             Assert.Equal(isUpdated, resultDto.IsUpdated);
             Assert.Equal(tokenResponse.AccessToken, resultDto.AccessToken);
             Assert.Equal(tokenResponse.RefreshToken, resultDto.RefreshToken);
-            Assert.Equal(tokenResponse.DeviceId, resultDto.DeviceId);
         }
 
         [Fact]
         public void ToResponseDto_ShouldMapCorrectly()
         {
-            var updatedResult = new TokenUpdatedResultDto(true, "access-token", "refresh-token", "device-id");
+            var updatedResult = new TokenUpdatedResultDto(true, "access-token", "refresh-token");
 
             var responseDto = TokenMapper.ToResponseDto(updatedResult);
 
             Assert.Equal(updatedResult.AccessToken, responseDto.AccessToken);
             Assert.Equal(updatedResult.RefreshToken, responseDto.RefreshToken);
-            Assert.Equal(updatedResult.DeviceId, responseDto.DeviceId);
         }
     }
 }

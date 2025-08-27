@@ -4,12 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Shared.Configuration
+namespace Shared
 {
     public static class CookieNames
     {
         public const string AccessToken = "accessToken";
         public const string RefreshToken = "refreshToken";
-        public const string DeviceId = "deviceId";
     }
 }

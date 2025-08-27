@@ -1,5 +1,6 @@
 ﻿using Application.Services;
 using Application.Services.Contracts;
+using GatewayApi.Auth;
 using GatewayApi.Services;
 using GatewayApi.Services.Contracts;
 using Infrastructure.Data;
@@ -25,6 +26,11 @@ namespace GatewayApi.Extensions
             return services;
         }
 
+        public static void AddOptions(this IServiceCollection services, IConfiguration configuration)
+        {
+            services.Configure<ApiSettings>(configuration.GetSection("ApiSettings"));
+        }
+
         public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
         {
             services.AddScoped<IDatabaseMigrationService, DatabaseMigrationService>();
@@ -34,15 +40,6 @@ namespace GatewayApi.Extensions
             services.AddScoped<IAuthenticationService, AuthenticationService>();
             services.AddScoped<IConnectionService, ConnectionService>();
             services.AddScoped<IChatService, ChatService>();
-            return services;
-        }
-
-        public static IServiceCollection AddTokenCookieService(this IServiceCollection services, IConfiguration configuration)
-        {
-            services.Configure<AccessTokenOptions>(configuration.GetSection("AccessTokenOptions"));
-            services.Configure<RefreshTokenOptions>(configuration.GetSection("RefreshTokenOptions"));
-            services.Configure<DeviceCookieOptions>(configuration.GetSection("DeviceCookieOptions"));
-            services.AddSingleton<ITokenCookieService, TokenCookieService>();
             return services;
         }
     }

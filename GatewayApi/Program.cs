@@ -28,9 +28,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsPolicy", policyBuilder =>
     {
-        policyBuilder.AllowAnyOrigin()
+        policyBuilder.WithOrigins("https://localhost:444", "https://192.168.27.5:444") // addresses of the client application
                      .AllowAnyMethod()
-                     .AllowAnyHeader();
+                     .AllowAnyHeader()
+                     .AllowCredentials();
     });
 });
 #endregion
@@ -52,8 +53,8 @@ builder.Services.AddDataContext(builder.Configuration);
 #region Registration
 builder.Services.AddControllers();
 builder.Services.AddValidators(); // FluentValidation registration
+builder.Services.AddOptions(builder.Configuration); // Options registration
 builder.Services.AddInfrastructureServices(); // Infrastructure services registration
-builder.Services.AddTokenCookieService(builder.Configuration); // Token cookie service registration
 builder.Services.AddJwtAuthenticationOptions(builder.Configuration); // JWT authentication options registration
 builder.Services.AddJwtAuthentication(builder.Configuration); // JWT authentication registration
 builder.Services.AddEndpointsApiExplorer(); // Swagger/OpenAPI

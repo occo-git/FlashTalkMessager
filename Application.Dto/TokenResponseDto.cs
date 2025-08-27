@@ -10,22 +10,19 @@ namespace Application.Dto
     {
         public string AccessToken { get; init; } = string.Empty;
         public string RefreshToken { get; init; } = string.Empty;
-        public string DeviceId { get; init; } = string.Empty;
 
         public TokenResponseDto() { }
 
-        public TokenResponseDto(string accessToken, string refreshToken, string deviceId) 
+        public TokenResponseDto(string accessToken, string refreshToken) 
         {
             AccessToken = accessToken;
             RefreshToken = refreshToken;
-            DeviceId = deviceId;
         }
 
         public TokenResponseDto(TokenUpdatedResultDto dto)
         {
             AccessToken = dto.AccessToken;
             RefreshToken = dto.RefreshToken;
-            DeviceId = dto.DeviceId;
         }
     }
 }

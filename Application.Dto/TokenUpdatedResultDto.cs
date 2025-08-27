@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace Application.Dto
 {
-    public record TokenUpdatedResultDto(bool IsUpdated, string AccessToken, string RefreshToken, string DeviceId)
+    public record TokenUpdatedResultDto(bool IsUpdated, string AccessToken, string RefreshToken)
     {
-        public bool IsNullOrEmpty => string.IsNullOrEmpty(AccessToken) || string.IsNullOrEmpty(RefreshToken) || string.IsNullOrEmpty(DeviceId);
+        public bool IsNullOrEmpty => string.IsNullOrEmpty(AccessToken) || string.IsNullOrEmpty(RefreshToken);
     }
 }

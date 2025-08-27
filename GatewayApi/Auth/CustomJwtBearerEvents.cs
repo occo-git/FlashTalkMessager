@@ -1,6 +1,9 @@
-﻿using Infrastructure.Repositories.Contracts;
+﻿using GatewayApi.Services.Contracts;
+using Infrastructure.Repositories.Contracts;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.Extensions.Options;
+using Shared;
 using Shared.Configuration;
 using System;
 using System.Collections.Generic;
@@ -19,7 +22,8 @@ namespace GatewayApi.Auth
             IRefreshTokenRepository refreshTokenRepository,
             IOptions<JwtValidationOptions> jwtValidationOptions)
         {
-            _refreshTokenRepository = refreshTokenRepository;
+            _refreshTokenRepository = refreshTokenRepository ?? throw new ArgumentNullException(nameof(refreshTokenRepository), "RefreshTokenRepository cannot be null.");
+
             if (jwtValidationOptions == null || jwtValidationOptions.Value == null)
                 throw new ArgumentNullException(nameof(jwtValidationOptions), "JwtValidationOptions cannot be null.");
         }
@@ -35,37 +39,37 @@ namespace GatewayApi.Auth
             {
                 context.Token = context.Request.Cookies[CookieNames.AccessToken];
             }
-
-            //string? token = context.Token;
-            //int len = token?.Length ?? 0;
-            //Console.WriteLine($">>> OnMessageReceived called Path={path} Token={token?.Substring(0, 4)}...{token?.Substring(len - 4)}");
-
             return Task.CompletedTask;
         }
 
-        //public override async Task TokenValidated(TokenValidatedContext context)
-        //{
-        //    var deviceId = context.Request.Cookies[CookieNames.DeviceId];
-        //    if (string.IsNullOrEmpty(deviceId))
-        //    {
-        //        context.Fail("DeviceId cookie missing.");
-        //        return;
-        //    }
+        public override async Task TokenValidated(TokenValidatedContext context)
+        {
+            Console.WriteLine(">>> OnTokenValidated called");            
+            var sessionId = context.HttpContext.Request.Headers[HeaderNames.SessionId].FirstOrDefault();
+            Console.WriteLine($">>> SessionId from header: {sessionId}");
+            if (string.IsNullOrEmpty(sessionId))
+            {
+                Console.WriteLine(">>> SessionId header is missing.");
+                context.Fail("SessionId header missing.");
+                return;
+            }
 
-        //    var userIdStr = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        //    if (!Guid.TryParse(userIdStr, out var userId))
-        //    {
-        //        context.Fail("UserId claim is invalid.");
-        //        return;
-        //    }
+            var userIdStr = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var userId))
+            {
+                Console.WriteLine(">>> UserId claim is invalid.");
+                context.Fail("UserId claim is invalid.");
+                return;
+            }
 
-        //    var ct = context.HttpContext.RequestAborted;
-        //    bool isValid = await _refreshTokenRepository.ValidateRefreshTokenAsync(userId, deviceId, ct);
-        //    if (!isValid)
-        //    {
-        //        context.Fail("Invalid device session.");
-        //        return;
-        //    }
-        //}
+            var ct = context.HttpContext.RequestAborted;
+            bool isValid = await _refreshTokenRepository.ValidateRefreshTokenAsync(userId, sessionId, ct);
+            if (!isValid)
+            {
+                Console.WriteLine(">>> Invalid circuit session.");
+                context.Fail("Invalid circuit session.");
+                return;
+            }
+        }
     }
 }

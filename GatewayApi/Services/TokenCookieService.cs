@@ -1,5 +1,6 @@
 ﻿using GatewayApi.Services.Contracts;
 using Microsoft.Extensions.Options;
+using Shared;
 using Shared.Configuration;
 
 namespace GatewayApi.Services
@@ -8,25 +9,25 @@ namespace GatewayApi.Services
     {
         private readonly AccessTokenOptions _ato;
         private readonly RefreshTokenOptions _rto;
-        private readonly DeviceCookieOptions _dco;
+        private readonly ApiSettings _apiSettings;
         private readonly ILogger<TokenCookieService> _logger;
 
         public TokenCookieService( 
             IOptions<AccessTokenOptions> accessTokenOptions,
             IOptions<RefreshTokenOptions> refreshTokenOptions,
-            IOptions<DeviceCookieOptions> diviceCookieOptions,
+            IOptions<ApiSettings> apiSettings,
             ILogger<TokenCookieService> logger)
         {
             if (accessTokenOptions == null)
                 throw new ArgumentNullException(nameof(accessTokenOptions));
             if (refreshTokenOptions == null)
                 throw new ArgumentNullException(nameof(refreshTokenOptions));
-            if (diviceCookieOptions == null)
-                throw new ArgumentNullException(nameof(diviceCookieOptions));
+            if (apiSettings == null)
+                throw new ArgumentNullException(nameof(apiSettings));
 
             _ato = accessTokenOptions.Value;
             _rto = refreshTokenOptions.Value;
-            _dco = diviceCookieOptions.Value;
+            _apiSettings = apiSettings.Value;
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -45,6 +46,7 @@ namespace GatewayApi.Services
 
         public void SetRefreshTokenCookie(HttpResponse response, string refreshToken)
         {
+            _logger.LogInformation("Setting cookie RefreshToken = {refreshToken}", refreshToken);
             var refreshTokenCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
@@ -54,23 +56,6 @@ namespace GatewayApi.Services
             };
             response.Cookies.Append(CookieNames.RefreshToken, refreshToken, refreshTokenCookieOptions);
         }
-
-        public void SetDeviceIdCookie(HttpResponse response, string deviceId)
-        {
-            if (string.IsNullOrWhiteSpace(deviceId))
-            {
-                _logger.LogWarning("Attempted to set DeviceId cookie with null or empty value.");
-                return;
-            }
-            var deviceIdCookieOptions = new CookieOptions
-            {
-                HttpOnly = false,
-                Secure = _dco.Secure,
-                SameSite = _dco.SameSite,
-                Expires = DateTime.UtcNow.AddMonths(_dco.ExpiresMonths)
-            };
-            response.Cookies.Append(CookieNames.DeviceId, deviceId, deviceIdCookieOptions);
-        }
         #endregion
 
         #region Get
@@ -79,10 +64,6 @@ namespace GatewayApi.Services
 
         public string? GetRefreshTokenCookie(HttpRequest request) =>
             request.Cookies.TryGetValue(CookieNames.RefreshToken, out var refreshToken) ? refreshToken : null;
-
-        public string? GetDeviceIdCookie(HttpRequest request) =>
-            request.Cookies.TryGetValue(CookieNames.DeviceId, out var deviceId) ? deviceId: null;
-
         #endregion
 
         #region Delete
@@ -106,16 +87,6 @@ namespace GatewayApi.Services
                 SameSite = _rto.SameSite
             };
             response.Cookies.Delete(CookieNames.RefreshToken, refreshTokenCookieOptions);
-        }
-        public void DeleteDeviceIdCookie(HttpResponse response)
-        {
-            var deviceCookieOptions = new CookieOptions
-            {
-                HttpOnly = false,
-                Secure = _dco.Secure,
-                SameSite = _dco.SameSite
-            };
-            response.Cookies.Delete(CookieNames.DeviceId, deviceCookieOptions);
         }
         #endregion
     }

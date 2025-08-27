@@ -1,4 +1,6 @@
 ﻿using GatewayApi.Auth;
+using GatewayApi.Services;
+using GatewayApi.Services.Contracts;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +17,10 @@ namespace GatewayApi.Extensions
         public static void AddJwtAuthenticationOptions(this IServiceCollection services, IConfiguration configuration)
         {
             services.Configure<JwtValidationOptions>(configuration.GetSection("JwtValidationOptions"));
+            services.Configure<AccessTokenOptions>(configuration.GetSection("AccessTokenOptions"));
+            services.Configure<RefreshTokenOptions>(configuration.GetSection("RefreshTokenOptions"));
+
+            services.AddSingleton<ITokenCookieService, TokenCookieService>();
             services.AddScoped<CustomJwtBearerEvents>();
         }
 
