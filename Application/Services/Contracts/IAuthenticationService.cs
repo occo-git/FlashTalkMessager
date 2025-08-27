@@ -13,8 +13,8 @@ namespace Application.Services.Contracts
     public interface IAuthenticationService
     {
         int AccessTokenMinutesBeforeExpiration { get; }
-        Task<TokenResponseDto> AuthenticateAsync(LoginUserDto loginUserDto, CancellationToken ct);
-        Task<TokenResponseDto> UpdateTokensAsync(string refreshToken, CancellationToken ct);
+        Task<TokenResponseDto> AuthenticateAsync(LoginUserDto loginUserDto, string sessionId, CancellationToken ct);
+        Task<TokenResponseDto> UpdateTokensAsync(string refreshToken, string sessionId, CancellationToken ct);
         Task<int> RevokeRefreshTokensAsync(Guid userId, CancellationToken ct);
     }
 }

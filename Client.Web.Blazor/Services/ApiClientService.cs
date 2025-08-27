@@ -1,26 +1,57 @@
 ﻿using Application.Dto;
 using Client.Web.Blazor.Services.Contracts;
+using Client.Web.Blazor.SessionId;
+using Shared;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 
 namespace Client.Web.Blazor.Services
 {
     public class ApiClientService : IApiClientService
     {
         private readonly HttpClient _httpClient;
+        private readonly SessionAccessor _sessionAccessor;
         private readonly ILogger<ApiClientService> _logger;
 
-        public ApiClientService(HttpClient httpClient, ILogger<ApiClientService> logger)
+        public ApiClientService(HttpClient httpClient, SessionAccessor sessionAccessor, ILogger<ApiClientService> logger)
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+            _sessionAccessor = sessionAccessor ?? throw new ArgumentNullException(nameof(sessionAccessor));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
+
+        #region Http Requests
+        private async Task<HttpResponseMessage> Get<T>(string url, CancellationToken ct)
+        {
+            return await CreateRequest<T>(HttpMethod.Get, url, ct);
+        }
+        private async Task<HttpResponseMessage> Post<T>(string url, CancellationToken ct, T? dto = default)
+        {
+            return await CreateRequest<T>(HttpMethod.Post, url, ct, dto);
+        }
+        private async Task<HttpResponseMessage> CreateRequest<T>(HttpMethod method, string url, CancellationToken ct, T? dto = default)
+        {
+            var request = new HttpRequestMessage(method, url);
+
+            if (!string.IsNullOrEmpty(_sessionAccessor.SessionId))
+            {
+                _logger.LogInformation("------>>>>> Adding SessionId to request '{url}' headers: {SessionId}", url, _sessionAccessor.SessionId);
+                request.Headers.Add(HeaderNames.SessionId, _sessionAccessor.SessionId);
+            }
+
+            if (dto != null && (method == HttpMethod.Post || method == HttpMethod.Put || method == HttpMethod.Patch))
+                request.Content = JsonContent.Create(dto);
+
+            return await _httpClient.SendAsync(request, ct);
+        }
+        #endregion
 
         #region User Management
         public async Task<UserInfoDto?> RegisterAsync(CreateUserDto dto, CancellationToken ct)
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.PostAsJsonAsync("api/users/register", dto, _ct);
+                var response = await Post("api/users/register", _ct, dto);
                 return await LogResponseAsync<UserInfoDto>(response, "Registration successful", "Registration failed");
             });
         }
@@ -28,7 +59,7 @@ namespace Client.Web.Blazor.Services
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.PostAsJsonAsync("api/users/login", dto, _ct);
+                var response = await Post("api/users/login", _ct, dto);
                 return await LogResponseAsync<TokenResponseDto>(response, "Login successful", "Login failed");
             });
         }
@@ -36,7 +67,7 @@ namespace Client.Web.Blazor.Services
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.GetAsync("api/users/is-authenticated", _ct);
+                var response = await Get<bool>("api/users/is-authenticated", _ct);
                 return await LogResponseAsync<bool>(response, "Check is authenticated successful", "Check is authenticated failed");
             });
         }
@@ -44,7 +75,7 @@ namespace Client.Web.Blazor.Services
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.GetAsync("api/users/is-access-soon-expired", _ct);
+                var response = await Get<bool>("api/users/is-access-soon-expired", _ct);
                 return await LogResponseAsync<bool>(response, "Access expiration check successful", "Access expiration check failed");
             });
         }
@@ -52,7 +83,7 @@ namespace Client.Web.Blazor.Services
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.PostAsync("api/users/update-tokens", null, _ct);
+                var response = await Post<TokenUpdatedResultDto>("api/users/update-tokens", _ct);
                 return await LogResponseAsync<TokenUpdatedResultDto>(response, "Update tokens successful", "Update tokens failed");
             });
         }
@@ -60,7 +91,7 @@ namespace Client.Web.Blazor.Services
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.PostAsync("api/users/try-update-tokens", null, _ct);
+                var response = await Post<TokenUpdatedResultDto>("api/users/try-update-tokens", _ct);
                 return await LogResponseAsync<TokenUpdatedResultDto>(response, "Try update tokens successful", "Try update tokens failed");
             });
         }
@@ -68,7 +99,7 @@ namespace Client.Web.Blazor.Services
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.PostAsync("api/users/logout", null, _ct);
+                var response = await Post<bool>("api/users/logout", _ct);
                 return await LogResponseAsync<bool>(response, "Logout successful", "Logout failed");
             });
         }
@@ -76,7 +107,7 @@ namespace Client.Web.Blazor.Services
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.GetAsync("api/users/me", _ct);
+                var response = await Get<UserInfoDto>("api/users/me", _ct);
                 return await LogResponseAsync<UserInfoDto>(response, "Get current user info successful", "Get current user info failed");
             });
         }
@@ -87,7 +118,7 @@ namespace Client.Web.Blazor.Services
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.GetAsync("api/chats/me", _ct);
+                var response = await Get<ChatInfoDto>("api/chats/me", _ct);
                 return await LogResponseAsync<List<ChatInfoDto>>(response, "Get or create chats by user ID successful", "Get or create chats by user ID failed");
             });
         }
@@ -95,7 +126,7 @@ namespace Client.Web.Blazor.Services
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.PostAsJsonAsync($"api/chats/messages", dto, _ct);
+                var response = await Post($"api/chats/messages", _ct, dto);
                 return await LogResponseAsync<List<GetMessageDto>>(response, "Get messages successful", "Get messages failed");
             });
         }
@@ -103,7 +134,7 @@ namespace Client.Web.Blazor.Services
         {
             return await TryAsync(ct, async _ct =>
             {
-                var response = await _httpClient.PostAsJsonAsync("api/chats/send-message", dto, _ct);
+                var response = await Post("api/chats/send-message", _ct, dto);
                 return await LogResponseAsync<ChatInfoDto>(response, "Send message successful", "Send message failed");
             });
         }
@@ -128,9 +159,9 @@ namespace Client.Web.Blazor.Services
                         detail = apiErrorResponseDto?.Detail;
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    // _logger.LogWarning("Failed to deserialize error response: {exceptionMessage}", ex.Message);
+                    //_logger.LogWarning("Failed to deserialize error response: {exceptionMessage}", ex.Message);
                     detail = await response.Content.ReadAsStringAsync();
                 }
                 _logger.LogError("{failureLogMessage}: {errorString} (StatusCode: {statusCode})", failureLogMessage, detail, response.StatusCode);
