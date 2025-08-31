@@ -18,48 +18,53 @@ namespace Application.Services
 {
     public class UserService : IUserService
     {
-        private readonly IDataContext _context;
+        private readonly IDbContextFactory<DataContext> _dbContextFactory;
         private readonly ILogger<UserService> _logger;
 
         public UserService(
-            IDataContext context,
+            IDbContextFactory<DataContext> dbContextFactory,
             ILogger<UserService> logger)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         public async Task<User?> GetByIdAsync(Guid id, CancellationToken ct)
         {
-            return await _context.Users
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            return await context.Users
                 .Include(u => u.Connections)
                 .FirstOrDefaultAsync(u => u.Id == id, ct);
         }
 
         public async Task<User?> GetByUsernameAsync(string username, CancellationToken ct)
         {
-            return await _context.Users
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            return await context.Users
                 .Include(u => u.Connections)
                 .FirstOrDefaultAsync(u => u.Username == username, ct);
         }
 
         public async Task<User?> GetByEmailAsync(string email, CancellationToken ct)
         {
-            return await _context.Users
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            return await context.Users
                 .Include(u => u.Connections)
                 .FirstOrDefaultAsync(u => u.Email == email, ct);
         }
 
         public async Task<IEnumerable<User>> GetAllAsync(CancellationToken ct)
         {
-            return await _context.Users
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            return await context.Users
                 .AsNoTracking()
                 .ToListAsync(ct);
         }
 
-        public IAsyncEnumerable<User> GetAllAsyncEnumerable()
+        public async Task<IAsyncEnumerable<User>> GetAllAsyncEnumerable(CancellationToken ct)
         {
-            return _context.Users.AsAsyncEnumerable();
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            return context.Users.AsAsyncEnumerable();
         }
 
         public async Task<User> CreateAsync(User user, CancellationToken ct)
@@ -76,8 +81,9 @@ namespace Application.Services
             user.Id = Guid.NewGuid();
             user.CreatedAt = DateTime.UtcNow;
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync(ct);
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            context.Users.Add(user);
+            await context.SaveChangesAsync(ct);
 
             return user;
         }
@@ -86,7 +92,8 @@ namespace Application.Services
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
 
-            var existingUser = await _context.Users.FindAsync(user.Id, ct);
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            var existingUser = await context.Users.FindAsync(user.Id, ct);
             if (existingUser == null)
                 throw new KeyNotFoundException("User not found");
 
@@ -94,18 +101,19 @@ namespace Application.Services
             existingUser.Username = user.Username;
             existingUser.PasswordHash = user.PasswordHash;
 
-            await _context.SaveChangesAsync(ct);
+            await context.SaveChangesAsync(ct);
 
             return existingUser;
         }
 
         public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
         {
-            var user = await _context.Users.FindAsync(id, ct);
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            var user = await context.Users.FindAsync(id, ct);
             if (user == null) return false;
 
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync(ct);
+            context.Users.Remove(user);
+            await context.SaveChangesAsync(ct);
 
             return true;
         }

@@ -12,23 +12,24 @@ namespace Application.Services
 {
     public class ConnectionService : IConnectionService
     {
-        private readonly DataContext _context;
-
-        public ConnectionService(DataContext context)
+        private readonly IDbContextFactory<DataContext> _dbContextFactory;
+        public ConnectionService(IDbContextFactory<DataContext> dbContextFactory)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
         }
 
         public async Task<Connection?> GetByIdAsync(string connectionId, CancellationToken ct)
         {
-            return await _context.Connections
-                .Include(c => c.User) // при необходимости загружаем пользователя
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            return await context.Connections
+                .Include(c => c.User) // Include related User entity
                 .FirstOrDefaultAsync(c => c.ConnectionId == connectionId, ct);
         }
 
         public async Task<IEnumerable<Connection>> GetAllAsync(CancellationToken ct)
         {
-            return await _context.Connections
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            return await context.Connections
                 .Include(c => c.User)
                 .AsNoTracking()
                 .ToListAsync(ct);
@@ -39,8 +40,9 @@ namespace Application.Services
             if (connection == null) throw new ArgumentNullException(nameof(connection));
             connection.ConnectedAt = DateTime.UtcNow;
 
-            _context.Connections.Add(connection);
-            await _context.SaveChangesAsync(ct);
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            context.Connections.Add(connection);
+            await context.SaveChangesAsync(ct);
 
             return connection;
         }
@@ -49,32 +51,35 @@ namespace Application.Services
         {
             if (connection == null) throw new ArgumentNullException(nameof(connection));
 
-            var existing = await _context.Connections.FindAsync(connection.ConnectionId);
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            var existing = await context.Connections.FindAsync(connection.ConnectionId);
             if (existing == null)
                 throw new KeyNotFoundException($"Connection with ID {connection.ConnectionId} not found");
 
             existing.UserId = connection.UserId;
             existing.ConnectedAt = connection.ConnectedAt;
 
-            await _context.SaveChangesAsync(ct);
+            await context.SaveChangesAsync(ct);
 
             return existing;
         }
 
         public async Task<bool> DeleteAsync(string connectionId, CancellationToken ct)
         {
-            var connection = await _context.Connections.FindAsync(connectionId);
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            var connection = await context.Connections.FindAsync(connectionId);
             if (connection == null) return false;
 
-            _context.Connections.Remove(connection);
-            await _context.SaveChangesAsync(ct);
+            context.Connections.Remove(connection);
+            await context.SaveChangesAsync(ct);
 
             return true;
         }
 
         public async Task<IEnumerable<Connection>> GetByUserIdAsync(Guid userId, CancellationToken ct)
         {
-            return await _context.Connections
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            return await context.Connections
                 .Where(c => c.UserId == userId)
                 .AsNoTracking()
                 .ToListAsync(ct);
@@ -82,14 +87,15 @@ namespace Application.Services
 
         public async Task<bool> DeleteByUserIdAsync(Guid userId, CancellationToken ct)
         {
-            var connections = await _context.Connections
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            var connections = await context.Connections
                 .Where(c => c.UserId == userId)
                 .ToListAsync(ct);
 
             if (connections.Count == 0) return false;
 
-            _context.Connections.RemoveRange(connections);
-            await _context.SaveChangesAsync(ct);
+            context.Connections.RemoveRange(connections);
+            await context.SaveChangesAsync(ct);
 
             return true;
         }

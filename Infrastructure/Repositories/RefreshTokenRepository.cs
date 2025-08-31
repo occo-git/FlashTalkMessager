@@ -1,6 +1,7 @@
 ﻿using Application.Dto;
 using Domain.Models;
 using Infrastructure.Data;
+using Infrastructure.Data.Contracts;
 using Infrastructure.Repositories.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -14,12 +15,14 @@ namespace Infrastructure.Repositories
 {
     public class RefreshTokenRepository : IRefreshTokenRepository
     {
-        private readonly DataContext _context;
+        private readonly IDbContextFactory<DataContext> _dbContextFactory;
         private readonly ILogger<RefreshTokenRepository> _logger;
 
-        public RefreshTokenRepository(DataContext context, ILogger<RefreshTokenRepository> logger)
+        public RefreshTokenRepository(
+            IDbContextFactory<DataContext> dbContextFactory, 
+            ILogger<RefreshTokenRepository> logger)
         {
-            _context = context;
+            _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
             _logger = logger;
         }
 
@@ -30,8 +33,9 @@ namespace Infrastructure.Repositories
             _logger.LogInformation($"Adding refresh token: UserId = {refreshToken.UserId}");
             try
             {
-                await _context.RefreshTokens.AddAsync(refreshToken, ct);
-                await _context.SaveChangesAsync(ct);
+                using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+                await context.RefreshTokens.AddAsync(refreshToken, ct);
+                await context.SaveChangesAsync(ct);
                 return refreshToken;
             }
             catch (Exception ex)
@@ -47,7 +51,8 @@ namespace Infrastructure.Repositories
             //_logger.LogInformation("Getting refresh token by value");
             try
             {
-                return await _context.RefreshTokens
+                using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+                return await context.RefreshTokens
                     .AsNoTracking()
                     .FirstOrDefaultAsync(t => t.Token == tokenValue, ct);
             }
@@ -63,7 +68,8 @@ namespace Infrastructure.Repositories
             _logger.LogInformation($"Revoking refresh tokens: UserId = {userId}, SessionId = {sessionId}");
             try
             {
-                return await _context.RefreshTokens
+                using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+                return await context.RefreshTokens
                     .Where(t => t.UserId == userId && t.SessionId == sessionId && !t.Revoked)
                     .ExecuteUpdateAsync(t => t.SetProperty(r => r.Revoked, true), ct);
             }
@@ -79,7 +85,8 @@ namespace Infrastructure.Repositories
             _logger.LogInformation($"Validating refresh token: UserId = {userId}, SessionId = {sessionId}");
             try
             {
-                return await _context.RefreshTokens
+                using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+                return await context.RefreshTokens
                     .AsNoTracking()
                     .AnyAsync(t => t.UserId == userId && t.SessionId == sessionId && t.ExpiresAt > DateTime.UtcNow && !t.Revoked, ct);
             }
@@ -96,14 +103,15 @@ namespace Infrastructure.Repositories
             _logger.LogInformation("Updating refresh token");
             try
             {
+                using var context = await _dbContextFactory.CreateDbContextAsync(ct);
                 if (oldRefreshToken != null)
                 {
                     oldRefreshToken.Revoked = true;
-                    _context.RefreshTokens.Update(oldRefreshToken);
+                    context.RefreshTokens.Update(oldRefreshToken);
                 }
 
-                await _context.RefreshTokens.AddAsync(newRefreshToken, ct);
-                await _context.SaveChangesAsync(ct);
+                await context.RefreshTokens.AddAsync(newRefreshToken, ct);
+                await context.SaveChangesAsync(ct);
 
                 return newRefreshToken;
             }

@@ -26,16 +26,20 @@ namespace GatewayApi.Auth
         }
 
         public override Task MessageReceived(MessageReceivedContext context)
-        {
+        {                
             var path = context.HttpContext.Request.Path;
+            var sessionId = context.HttpContext.Request.Headers[HeaderNames.SessionId].FirstOrDefault();
+            var accessTokenCookieName = $"{CookieNames.AccessToken}-{sessionId}";
+
             if (path.StartsWithSegments("/chatHub"))
             {
                 context.Token = context.Request.Query[CookieNames.AccessToken];
             }
-            else if (context.Request.Cookies.ContainsKey(CookieNames.AccessToken))
+            else if (context.Request.Cookies.ContainsKey(accessTokenCookieName))
             {
-                context.Token = context.Request.Cookies[CookieNames.AccessToken];
+                context.Token = context.Request.Cookies[accessTokenCookieName];
             }
+
             return Task.CompletedTask;
         }
 
@@ -43,8 +47,8 @@ namespace GatewayApi.Auth
         {
             Console.WriteLine(">>> JwtEvents.TokenValidated called");
 
-            //var sessionId = context.HttpContext.Request.Headers[HeaderNames.SessionId].FirstOrDefault();
-            var sessionId = context.Principal?.FindFirst(ClaimAdditionalTypes.SessionId)?.Value;
+            var sessionId = context.HttpContext.Request.Headers[HeaderNames.SessionId].FirstOrDefault();
+            //var sessionId = context.Principal?.FindFirst(ClaimAdditionalTypes.SessionId)?.Value;
             if (string.IsNullOrEmpty(sessionId))
             {
                 Console.WriteLine(">>> JwtEvents.TokenValidated: SessionId header is missing.");

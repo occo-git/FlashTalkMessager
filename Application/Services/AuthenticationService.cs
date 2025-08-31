@@ -24,7 +24,7 @@ namespace Application.Services
 {
     public class AuthenticationService : IAuthenticationService
     {
-        private readonly DataContext _context;
+        private readonly IDbContextFactory<DataContext> _dbContextFactory;
         private readonly IRefreshTokenRepository _refreshTokenRepository;
         private readonly IValidator<LoginUserDto> _loginValidator;
         private readonly SymmetricSecurityKey _sKey;
@@ -36,7 +36,7 @@ namespace Application.Services
         public int AccessTokenMinutesBeforeExpiration => _accessTokenMinutesBeforeExpiration;
 
         public AuthenticationService(
-            DataContext context,
+            IDbContextFactory<DataContext> dbContextFactory,
             IRefreshTokenRepository refreshTokenRepository,
             IValidator<LoginUserDto> loginValidator,
             SymmetricSecurityKey sKey,
@@ -44,7 +44,7 @@ namespace Application.Services
             IOptions<RefreshTokenOptions> refreshTokenOptions,
             ILogger<AuthenticationService> logger)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
             _refreshTokenRepository = refreshTokenRepository ?? throw new ArgumentNullException(nameof(refreshTokenRepository));
             _loginValidator = loginValidator ?? throw new ArgumentNullException(nameof(loginValidator));
 
@@ -68,7 +68,8 @@ namespace Application.Services
             await _loginValidator.ValidationCheck(loginUserDto);
             _logger.LogInformation("Authenticate user: {Username}", loginUserDto.Username);
 
-            var user = await _context.Users
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            var user = await context.Users
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Username == loginUserDto.Username || u.Email == loginUserDto.Username, ct);
             if (user == null || !UserMapper.CheckPassword(user, loginUserDto))
@@ -83,7 +84,8 @@ namespace Application.Services
             if (oldRefreshToken == null || oldRefreshToken.ExpiresAt < DateTime.UtcNow || oldRefreshToken.Revoked)
                 throw new UnauthorizedAccessException("Invalid or expired refresh token.");
 
-            var user = await _context.Users
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            var user = await context.Users
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == oldRefreshToken.UserId, ct);
             if (user == null)

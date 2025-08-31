@@ -50,7 +50,7 @@ namespace GatewayApi.Services
             //    accessTokenCookieOptions.SameSite,
             //    accessTokenCookieOptions.Expires,
             //    accessTokenCookieOptions.Path);
-            response.Cookies.Append(CookieNames.AccessToken, accessToken!, accessTokenCookieOptions);
+            response.Cookies.Append(AccessTokenCookieName(sessionId), accessToken!, accessTokenCookieOptions);
         }
 
         public void SetRefreshTokenCookie(HttpResponse response, string refreshToken, string sessionId)
@@ -70,16 +70,16 @@ namespace GatewayApi.Services
             //    refreshTokenCookieOptions.SameSite,
             //    refreshTokenCookieOptions.Expires,
             //    refreshTokenCookieOptions.Path);
-            response.Cookies.Append(CookieNames.RefreshToken, refreshToken!, refreshTokenCookieOptions);
+            response.Cookies.Append(RefreshTokenCookieName(sessionId), refreshToken!, refreshTokenCookieOptions);
         }
         #endregion
 
         #region Get
-        public string? GetAccessTokenCookie(HttpRequest request) =>
-            request.Cookies.TryGetValue(CookieNames.AccessToken, out var accessToken) ? accessToken : null;
+        public string? GetAccessTokenCookie(HttpRequest request, string sessionId) =>
+            request.Cookies.TryGetValue(AccessTokenCookieName(sessionId), out var accessToken) ? accessToken : null;
 
-        public string? GetRefreshTokenCookie(HttpRequest request) =>
-            request.Cookies.TryGetValue(CookieNames.RefreshToken, out var refreshToken) ? refreshToken : null;
+        public string? GetRefreshTokenCookie(HttpRequest request, string sessionId) =>
+            request.Cookies.TryGetValue(RefreshTokenCookieName(sessionId), out var refreshToken) ? refreshToken : null;
         #endregion
 
         #region Delete
@@ -92,7 +92,7 @@ namespace GatewayApi.Services
                 SameSite = _ato.SameSite,
                 Path = "/"
             };
-            response.Cookies.Delete(CookieNames.AccessToken, accessTokenCookieOptions);
+            response.Cookies.Delete(AccessTokenCookieName(sessionId), accessTokenCookieOptions);
         }
 
         public void DeleteRefreshTokenCookie(HttpResponse response, string sessionId)
@@ -104,8 +104,11 @@ namespace GatewayApi.Services
                 SameSite = _rto.SameSite,
                 Path = "/"
             };
-            response.Cookies.Delete(CookieNames.RefreshToken, refreshTokenCookieOptions);
+            response.Cookies.Delete(RefreshTokenCookieName(sessionId), refreshTokenCookieOptions);
         }
         #endregion
+
+        private string AccessTokenCookieName(string sessionId) => $"{CookieNames.AccessToken}-{sessionId}";
+        private string RefreshTokenCookieName(string sessionId) => $"{CookieNames.RefreshToken}-{sessionId}";
     }
 }
