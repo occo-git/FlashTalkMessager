@@ -28,7 +28,11 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsPolicy", policyBuilder =>
     {
-        policyBuilder.WithOrigins("https://localhost:444", "https://192.168.27.5:444") // addresses of the client application
+        policyBuilder.WithOrigins(
+                        "https://localhost:444",
+                        "https://192.168.27.1:444",
+                        "https://192.168.27.5:444",
+                        "https://192.168.27.7:444") // addresses of the client application
                      .AllowAnyMethod()
                      .AllowAnyHeader()
                      .AllowCredentials();
@@ -72,7 +76,7 @@ builder.Services.AddDataProtection()
 #region Kestrel
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenAnyIP(443, listenOptions => listenOptions.UseHttps("/https/server.pfx", "flash7000$")); // HTTPs, SSL cert
+    options.ListenAnyIP(443, listenOptions => listenOptions.UseHttps("/https/server.pfx", "flashtalk7000$")); // HTTPs, SSL cert
 });
 #endregion
 

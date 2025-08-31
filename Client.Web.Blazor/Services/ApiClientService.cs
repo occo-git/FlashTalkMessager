@@ -1,23 +1,33 @@
 ﻿using Application.Dto;
 using Client.Web.Blazor.Services.Contracts;
 using Client.Web.Blazor.SessionId;
+using Microsoft.Extensions.Options;
 using Shared;
+using Shared.Configuration;
+using System;
+using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 
 namespace Client.Web.Blazor.Services
 {
     public class ApiClientService : IApiClientService
     {
-        private readonly HttpClient _httpClient;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly SessionAccessor _sessionAccessor;
         private readonly ILogger<ApiClientService> _logger;
 
-        public ApiClientService(HttpClient httpClient, SessionAccessor sessionAccessor, ILogger<ApiClientService> logger)
+        public ApiClientService(
+        IHttpClientFactory httpClientFactory,
+        SessionAccessor sessionAccessor,
+        ILogger<ApiClientService> logger)
         {
-            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+            _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));;
             _sessionAccessor = sessionAccessor ?? throw new ArgumentNullException(nameof(sessionAccessor));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+            //Console.WriteLine($"!!! ApiClientService: HttpClient = {_httpClient.GetHashCode()}, BaseAddress = {_httpClient.BaseAddress}");
         }
 
         #region Http Requests
@@ -32,17 +42,34 @@ namespace Client.Web.Blazor.Services
         private async Task<HttpResponseMessage> CreateRequest<T>(HttpMethod method, string url, CancellationToken ct, T? dto = default)
         {
             var request = new HttpRequestMessage(method, url);
-
             if (!string.IsNullOrEmpty(_sessionAccessor.SessionId))
-            {
-                _logger.LogInformation("------>>>>> Adding SessionId to request '{url}' headers: {SessionId}", url, _sessionAccessor.SessionId);
-                request.Headers.Add(HeaderNames.SessionId, _sessionAccessor.SessionId);
-            }
+                request.Headers.Add(HeaderNames.SessionId, _sessionAccessor.SessionId);           
+            
+            _logger.LogInformation($"ApiClientService.CreateRequest url='{request.RequestUri}'");
+            LogRequest(request);
 
             if (dto != null && (method == HttpMethod.Post || method == HttpMethod.Put || method == HttpMethod.Patch))
                 request.Content = JsonContent.Create(dto);
 
-            return await _httpClient.SendAsync(request, ct);
+            var httpClient = _httpClientFactory.CreateClient("ApiClient");
+            return await httpClient.SendAsync(request, ct);
+        }
+        private void LogRequest(HttpRequestMessage httpRequest)
+        {
+            Console.WriteLine("Headers:");
+            foreach (var header in httpRequest.Headers)
+                if (header.Value != null && header.Value.Count() > 0)
+                    Console.WriteLine($" → {header.Key} = {header.Value.FirstOrDefault()}");
+
+            //if (_httpClientHandler == null)
+            //{
+            //    Console.WriteLine("!!! HttpClientHandler is null, cannot log cookies.");
+            //    return;
+            //}
+            //Console.WriteLine("Cookies:");
+            //var cookies = _httpClientHandler.CookieContainer.GetCookies(_httpClient.BaseAddress!);
+            //var cookieDetails = cookies.Cast<Cookie>().Select(c => $"{c.Name}={c.Value} (Expires: {c.Expires})").ToArray();
+            //Console.WriteLine($" → {string.Join("; ", cookieDetails) ?? ""}");
         }
         #endregion
 
@@ -69,22 +96,6 @@ namespace Client.Web.Blazor.Services
             {
                 var response = await Get<bool>("api/users/is-authenticated", _ct);
                 return await LogResponseAsync<bool>(response, "Check is authenticated successful", "Check is authenticated failed");
-            });
-        }
-        public async Task<bool> IsAccessSoonExpiredAsync(CancellationToken ct)
-        {
-            return await TryAsync(ct, async _ct =>
-            {
-                var response = await Get<bool>("api/users/is-access-soon-expired", _ct);
-                return await LogResponseAsync<bool>(response, "Access expiration check successful", "Access expiration check failed");
-            });
-        }
-        public async Task<TokenUpdatedResultDto?> UpdateTokensAsync(CancellationToken ct)
-        {
-            return await TryAsync(ct, async _ct =>
-            {
-                var response = await Post<TokenUpdatedResultDto>("api/users/update-tokens", _ct);
-                return await LogResponseAsync<TokenUpdatedResultDto>(response, "Update tokens successful", "Update tokens failed");
             });
         }
         public async Task<TokenUpdatedResultDto?> TryUpdateTokensAsync(CancellationToken ct)

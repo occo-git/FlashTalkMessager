@@ -22,45 +22,39 @@ namespace GatewayApi.Extensions
 
             services.AddSingleton<ITokenCookieService, TokenCookieService>();
             services.AddScoped<CustomJwtBearerEvents>();
+
+            // get the JWT signing key from the environment variable
+            var signingKeyString = configuration[_jwtSecretEnv];
+            if (string.IsNullOrWhiteSpace(signingKeyString))
+                throw new Exception("JWT Signing Key is not set");
+ 
+            // Symmetric key to validate the token
+            var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKeyString));
+            services.AddSingleton(signingKey);
+            Console.WriteLine($"========= AddOptions.key = {signingKey}");
         }
 
         public static void AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
         {
-            var jwtValidationOptions = configuration.GetSection("JwtValidationOptions").Get<JwtValidationOptions>();
-            if (jwtValidationOptions == null)
-                throw new ArgumentNullException(nameof(jwtValidationOptions), "JwtValidationOptions cannot be null.");
-
-            // get the JWT signing key from the environment variable
-            var skVal = configuration[_jwtSecretEnv];
-            if (string.IsNullOrWhiteSpace(skVal))
-                throw new Exception("JWT Signing Key is not set");
-
-            // register JwtValidationOptions
-            services.Configure<JwtValidationOptions>(
-                options =>
-                {
-                    options.ValidateIssuer = jwtValidationOptions.ValidateIssuer;
-                    options.ValidateAudience = jwtValidationOptions.ValidateAudience;
-                    options.ValidateLifetime = jwtValidationOptions.ValidateLifetime;
-                    options.ValidateIssuerSigningKey = jwtValidationOptions.ValidateIssuerSigningKey;
-                    options.SigningKey = skVal;
-                });
-
-            jwtValidationOptions.SigningKey = skVal;
-
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(options =>
+                .AddJwtBearer(jwtBearerOption =>
                 {
-                    var sp = services.BuildServiceProvider();
-                    options.Events = sp.GetRequiredService<CustomJwtBearerEvents>();
+                    var options = configuration.GetSection("JwtValidationOptions").Get<JwtValidationOptions>();
+                    if (options == null)
+                        throw new ArgumentNullException(nameof(options), "JwtValidationOptions cannot be null.");
 
-                    options.TokenValidationParameters = new TokenValidationParameters
+                    var sp = services.BuildServiceProvider();
+                    jwtBearerOption.Events = sp.GetRequiredService<CustomJwtBearerEvents>();
+
+                    var sKey = sp.GetRequiredService<SymmetricSecurityKey>();
+                    Console.WriteLine($"======== AddJwtBearer.key = {sKey}");
+                    jwtBearerOption.TokenValidationParameters = new TokenValidationParameters
                     {
-                        ValidateIssuer = jwtValidationOptions.ValidateIssuer,
-                        ValidateAudience = jwtValidationOptions.ValidateAudience,
-                        ValidateLifetime = jwtValidationOptions.ValidateLifetime,
-                        ValidateIssuerSigningKey = jwtValidationOptions.ValidateIssuerSigningKey,
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(skVal)) // symmetric key to validate the token
+                        ValidateIssuer = options.ValidateIssuer,
+                        ValidateAudience = options.ValidateAudience,
+                        ValidateLifetime = options.ValidateLifetime,
+                        ValidateIssuerSigningKey = options.ValidateIssuerSigningKey,
+                        IssuerSigningKey = sKey
                     };
                 });
         }

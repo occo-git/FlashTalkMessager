@@ -2,28 +2,33 @@
 
 services:      
 
-  prometheus:
-    image: prom/prometheus
-    ports:
-      - "9090:9090"
-    networks:
-      - flashtalk_net1
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./certs:/etc/prometheus/certs:ro  # монтируем папку с сертификатами
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
+  # prometheus:
+  #   image: prom/prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   networks:
+  #     - flashtalk_net1
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #     - ./certs:/etc/prometheus/certs:ro  # монтируем папку с сертификатами
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
  
-  grafana:
-    image: grafana/grafana
-    container_name: grafana
-    ports:
-      - "3000:3000"
-    networks:
-      - flashtalk_net1
-    volumes:
-      - grafana_data:/var/lib/grafana  # для сохранения данных между перезапусками
-    restart: unless-stopped
+  # grafana:
+  #   image: grafana/grafana
+  #   container_name: grafana
+  #   ports:
+  #     - "3000:3000"
+  #   networks:
+  #     - flashtalk_net1
+  #   environment:
+  #     - GF_LOG_LEVEL=error
+  #     - GF_LOG_LEVEL_PLUGINS_UPDATE_CHECKER=error
+  #     - GF_LOG_LEVEL_CLEANUP=error
+  #     - GF_LOG_LEVEL_INFRA_USAGESTATS=error
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana  # для сохранения данных между перезапусками
+  #   restart: unless-stopped
 
   flashtalk_db: 
     image: postgres 

@@ -20,16 +20,17 @@ namespace Application.UnitTests.Mapping
                 Username = "testuser",
                 Email = "test@example.com",
                 PasswordHash = "hash"
-
             };
-            string token = "token123";
+            string accessToken = "token123";
+            string refreshToken = "token456";
 
-            var dto = UserMapper.ToDto(user, token);
+            var dto = UserMapper.ToDto(user, accessToken, refreshToken);
 
             Assert.Equal(user.Id, dto.Id);
             Assert.Equal(user.Username, dto.Username);
             Assert.Equal(user.Email, dto.Email);
-            Assert.Equal(token, dto.AccessToken);
+            Assert.Equal(accessToken, dto.AccessToken);
+            Assert.Equal(refreshToken, dto.RefreshToken);
         }
 
         [Fact]
@@ -49,6 +50,7 @@ namespace Application.UnitTests.Mapping
             Assert.Equal(user.Username, dto.Username);
             Assert.Equal(user.Email, dto.Email);
             Assert.Equal(string.Empty, dto.AccessToken);
+            Assert.Equal(string.Empty, dto.RefreshToken);
         }
 
         [Fact]

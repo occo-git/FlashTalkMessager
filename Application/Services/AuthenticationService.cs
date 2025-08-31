@@ -27,7 +27,7 @@ namespace Application.Services
         private readonly DataContext _context;
         private readonly IRefreshTokenRepository _refreshTokenRepository;
         private readonly IValidator<LoginUserDto> _loginValidator;
-        private readonly JwtValidationOptions _jwtOptions;
+        private readonly SymmetricSecurityKey _sKey;
         private readonly int _accessTokenExpirationMinutes = 15;
         private readonly int _accessTokenMinutesBeforeExpiration = 3;
         private readonly int _refreshTokenExpirationDays = 7;
@@ -39,7 +39,7 @@ namespace Application.Services
             DataContext context,
             IRefreshTokenRepository refreshTokenRepository,
             IValidator<LoginUserDto> loginValidator,
-            IOptions<JwtValidationOptions> jwtOptions,
+            SymmetricSecurityKey sKey,
             IOptions<AccessTokenOptions> accessTokenOptions,
             IOptions<RefreshTokenOptions> refreshTokenOptions,
             ILogger<AuthenticationService> logger)
@@ -48,9 +48,8 @@ namespace Application.Services
             _refreshTokenRepository = refreshTokenRepository ?? throw new ArgumentNullException(nameof(refreshTokenRepository));
             _loginValidator = loginValidator ?? throw new ArgumentNullException(nameof(loginValidator));
 
-            if (jwtOptions == null || jwtOptions.Value == null)
-                throw new ArgumentNullException(nameof(jwtOptions));
-            _jwtOptions = jwtOptions.Value;
+            _sKey = sKey ?? throw new ArgumentNullException(nameof(sKey));
+            //Console.WriteLine($"======== AuthenticationService.key = {_sKey}");
 
             if (accessTokenOptions == null || accessTokenOptions.Value == null)
                 throw new ArgumentNullException(nameof(accessTokenOptions));
@@ -93,9 +92,9 @@ namespace Application.Services
             return await UpdateTokens(user, oldRefreshToken, sessionId, ct);
         }
 
-        public async Task<int> RevokeRefreshTokensAsync(Guid userId, CancellationToken ct)
+        public async Task<int> RevokeRefreshTokensAsync(Guid userId, string sessionId, CancellationToken ct)
         {
-            return await _refreshTokenRepository.RevokeRefreshTokensByUserIdAsync(userId, ct);
+            return await _refreshTokenRepository.RevokeRefreshTokensAsync(userId, sessionId, ct);
         }
 
         #region Tokens
@@ -104,41 +103,43 @@ namespace Application.Services
             _logger.LogInformation("Generating tokens for user: {UserId}", user.Id);
 
             var newRefreshToken = GenerateRefreshToken(user, sessionId);
-            var newAccessToken = GenerateAccessToken(user);
+            var newAccessToken = GenerateAccessToken(user, sessionId);
 
             await _refreshTokenRepository.AddRefreshTokenAsync(newRefreshToken, ct);
 
             return new TokenResponseDto(
                 newAccessToken, 
-                newRefreshToken.Token);
+                newRefreshToken.Token,
+                newRefreshToken.SessionId);
         }
         private async Task<TokenResponseDto> UpdateTokens(User user, RefreshToken oldRefreshToken, string sessionId, CancellationToken ct)
         {
             _logger.LogInformation("Refreshing tokens for user: {UserId}", user.Id);
 
             var newRefreshToken = GenerateRefreshToken(user, sessionId);
-            var newAccessToken = GenerateAccessToken(user);
+            var newAccessToken = GenerateAccessToken(user, sessionId);
 
             await _refreshTokenRepository.UpdateRefreshTokenAsync(oldRefreshToken, newRefreshToken, ct);
 
             return new TokenResponseDto(
                 newAccessToken, 
-                newRefreshToken.Token);
+                newRefreshToken.Token,
+                newRefreshToken.SessionId);
         }
         #endregion
 
-        private string GenerateAccessToken(User user)
+        private string GenerateAccessToken(User user, string sessionId)
         {
-            if (_jwtOptions.SigningKey == null)
-                throw new Exception("JWT Signing Key is not set");
-
             var tokenType = TokenType.Access;
             var expires = GetExpires(tokenType);
-            var claims = GetClaims(user, tokenType, expires);
+            var claims = GetClaims(user, tokenType, expires, sessionId);
 
-            // Configure JWT
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SigningKey));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            Console.WriteLine($"======== Generating Access Token with claims {DateTime.UtcNow}:");
+            foreach (var claim in claims)
+                Console.WriteLine($" → {claim.Type} = {claim.Value}");
+
+            // Configure JWT;
+            var creds = new SigningCredentials(_sKey, SecurityAlgorithms.HmacSha256);
 
             var jwt = new JwtSecurityToken(
                 issuer: null,
@@ -152,21 +153,12 @@ namespace Application.Services
         }
         private RefreshToken GenerateRefreshToken(User user, string sessionId)
         {
-            if (_jwtOptions.SigningKey == null)
-                throw new Exception("JWT Signing Key is not set");
-            if (string.IsNullOrWhiteSpace(sessionId))
-                throw new ArgumentNullException(nameof(sessionId), "SessionId cannot be null or empty");
-
             var tokenType = TokenType.Refresh;
             var expires = GetExpires(tokenType);
-            var claims = GetClaims(user, tokenType, expires);
-
-            // Append device ID to claims
-            claims = claims.Append(new Claim(ClaimAdditionalTypes.SessionId, sessionId)).ToArray();
+            var claims = GetClaims(user, tokenType, expires, sessionId);
 
             // Configure JWT
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.SigningKey));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var creds = new SigningCredentials(_sKey, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
                 issuer: null,
@@ -181,7 +173,7 @@ namespace Application.Services
             return new RefreshToken(jwtToken, user.Id, expires, sessionId);
         }
 
-        private Claim[] GetClaims(User user, TokenType tokenType, DateTime expires)
+        private Claim[] GetClaims(User user, TokenType tokenType, DateTime expires, string sessionId)
         {
             if (string.IsNullOrWhiteSpace(user.Username))
                 throw new Exception("User's data is incomplete");
@@ -191,8 +183,9 @@ namespace Application.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimAdditionalTypes.Type, tokenType.ToString()),
                 new Claim(ClaimTypes.Expiration, expires.ToString("o")), // ISO 8601 format
+                new Claim(ClaimAdditionalTypes.Type, tokenType.ToString()),
+                new Claim(ClaimAdditionalTypes.SessionId, sessionId),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // Unique identifier for the token to make it non-replayable
             };
         }
