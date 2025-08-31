@@ -51,7 +51,7 @@ namespace Client.Web.Blazor.Services
             if (dto != null && (method == HttpMethod.Post || method == HttpMethod.Put || method == HttpMethod.Patch))
                 request.Content = JsonContent.Create(dto);
 
-            var httpClient = _httpClientFactory.CreateClient("ApiClient");
+            var httpClient = _httpClientFactory.CreateClient(ApiConstants.ApiClientName);
             return await httpClient.SendAsync(request, ct);
         }
         private void LogRequest(HttpRequestMessage httpRequest)

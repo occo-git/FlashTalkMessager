@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.OpenApi.Models;
 using Prometheus;
+using Shared;
 using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -59,6 +60,7 @@ builder.Services.AddControllers();
 builder.Services.AddValidators(); // FluentValidation registration
 builder.Services.AddOptions(builder.Configuration); // Options registration
 builder.Services.AddInfrastructureServices(); // Infrastructure services registration
+builder.Services.AddHostedServices(); // Hosted services registration
 builder.Services.AddJwtAuthenticationOptions(builder.Configuration); // JWT authentication options registration
 builder.Services.AddJwtAuthentication(builder.Configuration); // JWT authentication registration
 builder.Services.AddEndpointsApiExplorer(); // Swagger/OpenAPI
@@ -122,7 +124,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Register the SignalR hub route
-app.MapHub<ChatHub>("/chatHub"); 
+app.MapHub<ChatHub>(ApiConstants.SignalRHubRoute); 
 app.MapMetrics(); // Prometheus metrics
 app.MapControllers();
 

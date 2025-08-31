@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Shared;
 using Shared.Configuration;
 using System.Text;
 
@@ -12,26 +13,23 @@ namespace GatewayApi.Extensions
 {
     public static class AuthExtensions
     {
-        private const string _jwtSecretEnv = "JWT_SECRET_KEY";
-
         public static void AddJwtAuthenticationOptions(this IServiceCollection services, IConfiguration configuration)
         {
-            services.Configure<JwtValidationOptions>(configuration.GetSection("JwtValidationOptions"));
-            services.Configure<AccessTokenOptions>(configuration.GetSection("AccessTokenOptions"));
-            services.Configure<RefreshTokenOptions>(configuration.GetSection("RefreshTokenOptions"));
+            services.Configure<JwtValidationOptions>(configuration.GetSection(ApiConstants.JwtValidationOptions));
+            services.Configure<AccessTokenOptions>(configuration.GetSection(ApiConstants.AccessTokenOptions));
+            services.Configure<RefreshTokenOptions>(configuration.GetSection(ApiConstants.RefreshTokenOptions));
 
             services.AddSingleton<ITokenCookieService, TokenCookieService>();
             services.AddScoped<CustomJwtBearerEvents>();
 
             // get the JWT signing key from the environment variable
-            var signingKeyString = configuration[_jwtSecretEnv];
+            var signingKeyString = configuration[ApiConstants.JwtSecretEnv];
             if (string.IsNullOrWhiteSpace(signingKeyString))
                 throw new Exception("JWT Signing Key is not set");
  
             // Symmetric key to validate the token
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKeyString));
             services.AddSingleton(signingKey);
-            Console.WriteLine($"========= AddOptions.key = {signingKey}");
         }
 
         public static void AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
@@ -39,7 +37,7 @@ namespace GatewayApi.Extensions
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(jwtBearerOption =>
                 {
-                    var options = configuration.GetSection("JwtValidationOptions").Get<JwtValidationOptions>();
+                    var options = configuration.GetSection(ApiConstants.JwtValidationOptions).Get<JwtValidationOptions>();
                     if (options == null)
                         throw new ArgumentNullException(nameof(options), "JwtValidationOptions cannot be null.");
 
