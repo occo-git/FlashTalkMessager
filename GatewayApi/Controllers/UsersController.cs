@@ -5,6 +5,7 @@ using Application.Services.Contracts;
 using Domain.Models;
 using FluentValidation;
 using GatewayApi.Services.Contracts;
+using Infrastructure.Migrations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -51,10 +52,10 @@ namespace GatewayApi.Controllers
         /// All users info.
         /// </returns>
         [HttpGet("info")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize]
         public async IAsyncEnumerable<UserInfoDto> GetAllInfo([EnumeratorCancellation] CancellationToken ct)
         {
-            _logger.LogInformation("Getting all users info");
+            _logger.LogInformation("> UsersController.GetAllInfo");
 
             await foreach (var user in _userService.GetAllAsyncEnumerable().WithCancellation(ct))
             {
@@ -73,10 +74,10 @@ namespace GatewayApi.Controllers
         /// A user info.
         /// </returns>
         [HttpGet("info/{id:guid}")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize]
         public async Task<ActionResult<UserInfoDto>> GetById(Guid id, CancellationToken ct)
         {
-            _logger.LogInformation("Getting user by ID: {Id}", id);
+            _logger.LogInformation($"> UsersController.GetById: Id = {id}");
 
             var user = await _userService.GetByIdAsync(id, ct);
             if (user == null)
@@ -109,7 +110,7 @@ namespace GatewayApi.Controllers
 
             await validator.ValidationCheck(user);
 
-            _logger.LogInformation("Creating user: {Username}", user.Username);
+            _logger.LogInformation($"> UsersController.Register: Username = {user.Username}");
             User newUser = UserMapper.ToDomain(user);
             var createdUser = await _userService.CreateAsync(newUser, ct);
 
@@ -142,16 +143,17 @@ namespace GatewayApi.Controllers
             if (string.IsNullOrWhiteSpace(sessionId))
                 throw new ArgumentNullException(nameof(sessionId), "Session ID is required.");
 
-            _logger.LogInformation("Login request received for User: {Username}, SessionId: {SessionId}", user.Username, sessionId);
+            _logger.LogInformation($"> UsersController.Login: sessionId = {sessionId}");
+            //_logger.LogInformation("Login request received for User: {Username}, SessionId: {SessionId}", user.Username, sessionId);
 
             await validator.ValidationCheck(user);
 
-            _logger.LogInformation("Authenticate user: {Username}", user.Username);
+            _logger.LogInformation($"> UsersController.Login: Authenticate UserName = {user.Username}");
             var tokenResponse = await _authenticationService.AuthenticateAsync(user, sessionId, ct);
 
             SetTokenCookies(tokenResponse);
 
-            _logger.LogInformation("User authenticated: Username={Username}", user.Username);
+            _logger.LogInformation($"> UsersController.Login: Authenticated Username={user.Username}");
             return Ok(tokenResponse);
         }
 
@@ -166,9 +168,16 @@ namespace GatewayApi.Controllers
         /// Boolean indicating whether the user is authenticated.
         /// </returns>
         [HttpGet("is-authenticated")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        //[Authorize]
         public IActionResult IsAuthenticated(CancellationToken ct)
         {
+            _logger.LogInformation($"> UsersController.IsAuthenticated: sessionId = {GetSessionIdFromHeader()}");
+            _logger.LogInformation($"→→→ AccessToken = {GetAccessTokenFromCookie().ToShort()}");
+            _logger.LogInformation($"→→→ RefreshToken = {GetRefreshTokenFromCookie().ToShort()}");
+            _logger.LogInformation($"→→→ User = {User?.Identity?.Name}");
+            _logger.LogInformation($"→→→ IsAuthenticated = {User?.Identity?.IsAuthenticated}");
+            //_logger.LogInformation($"→→→ Request Headers: {string.Join(", ", Request.Headers)}");
+
             if (User?.Identity != null && User.Identity.IsAuthenticated)
                 return Ok(true);
 
@@ -185,7 +194,7 @@ namespace GatewayApi.Controllers
         /// </remarks>
         /// <returns>An <see cref="IActionResult"/> indicating whether the access token is close to expiring.</returns>
         [HttpGet("is-access-soon-expired")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize]
         public IActionResult IsAcessSoonExpired(CancellationToken ct)
         {
             return Ok(IsAccessTokenSoonExpired());
@@ -199,7 +208,7 @@ namespace GatewayApi.Controllers
                 if (expClaim != null && DateTime.TryParse(expClaim.Value, out var expiration))
                 {
                     var expired = DateTime.UtcNow.AddMinutes(_accessTokenMinutesBeforeExpiration);
-                    _logger.LogInformation("Checking if access token is soon expired: Expired={expired}, Expiration={expiration}", expired, expiration);
+                    _logger.LogInformation("> UsersController.IsAccessTokenSoonExpired: Expired={expired} {sign} Expiration={expiration}", expired, expired > expiration ? ">" : "<", expiration);
                     return expired > expiration;
                 }
             }
@@ -216,7 +225,7 @@ namespace GatewayApi.Controllers
         /// <returns>
         /// JWT tokens for the authenticated user.</returns>
         [HttpPost("update-tokens")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize]
         public async Task<ActionResult<TokenUpdatedResultDto>> UpdateTokens(CancellationToken ct)
         {
             return await UpdateTokensAsync(ct);
@@ -224,26 +233,28 @@ namespace GatewayApi.Controllers
 
         private async Task<ActionResult<TokenUpdatedResultDto>> UpdateTokensAsync(CancellationToken ct)
         {
-            _logger.LogInformation("Update tokens request received");
+            _logger.LogInformation("> UsersController.UpdateTokensAsync");
             string? refreshToken = GetRefreshTokenFromCookie();
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
-                _logger.LogError("Refresh token cookie is missing or empty");
+                _logger.LogError("> UsersController.UpdateTokensAsync: Refresh token cookie is missing or empty");
                 throw new ArgumentNullException("Refresh token is required.");
             }
 
-            _logger.LogInformation("Update tokens");
-            var tokenResponse = await _authenticationService.UpdateTokensAsync(refreshToken, GetSessionIdFromHeader(), ct);
+            var sessionId = GetSessionIdFromHeader();
+            _logger.LogInformation($"> UsersController.UpdateTokensAsync: (Header) sessionId = {sessionId}");
+
+            var tokenResponse = await _authenticationService.UpdateTokensAsync(refreshToken, sessionId, ct);
             if (tokenResponse == null)
             {
-                _logger.LogWarning("Failed to update tokens");
+                _logger.LogWarning("> UsersController.UpdateTokensAsync: Failed to update tokens");
                 throw new UnauthorizedAccessException("Invalid or expired refresh token.");
             }
 
             SetTokenCookies(tokenResponse);
 
             //  Console.WriteLine($"Access={tokenResponse.AccessToken} Refresh={tokenResponse.RefreshToken}");
-            _logger.LogInformation("Updated tokens");
+            _logger.LogInformation("> UsersController.UpdateTokensAsync: Updated tokens");
             return Ok(TokenMapper.ToUpdateDto(true, tokenResponse));
         }
 
@@ -257,18 +268,18 @@ namespace GatewayApi.Controllers
         /// <returns>
         /// JWT tokens for the authenticated user.</returns>
         [HttpPost("try-update-tokens")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize]
         public async Task<ActionResult<TokenUpdatedResultDto>> TryUpdateTokens(CancellationToken ct)
         {
-            _logger.LogInformation("Try update tokens request received");
+            _logger.LogInformation("> UsersController.TryUpdateTokens");
             if (IsAccessTokenSoonExpired())
             {
-                _logger.LogInformation("Access token is soon expired, updating tokens");
+                _logger.LogInformation("> UsersController.TryUpdateTokens: Access token is soon expired, updating tokens");
                 return await UpdateTokensAsync(ct);
             }
             else
             {
-                _logger.LogInformation("Access token is not soon expired, no need to update tokens");
+                _logger.LogInformation("> UsersController.TryUpdateTokens: Access token is not soon expired, no need to update tokens");
                 return Ok(TokenMapper.ToUpdateDto(false, GetTokenResponseDto()));
             }
         }
@@ -283,23 +294,23 @@ namespace GatewayApi.Controllers
         /// </remarks>
         /// <returns>The user information.</returns>
         [HttpGet("me")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize]
         public async Task<ActionResult<UserInfoDto>> GetLoggedUser(CancellationToken token)
         {
-            return await GetCurrentUser<UserInfoDto>(token, async (ct, userId, accessToken) =>
+            return await GetCurrentUser<UserInfoDto>(token, async (ct, userId, accessToken, refreshToken) =>
             {
-                _logger.LogInformation("Finding user: Id={id}", userId);
+                _logger.LogInformation("> UsersController.GetLoggedUser: Finding user: Id={id}", userId);
                 var user = await _userService.GetByIdAsync(userId, ct);
                 if (user == null)
                 {
-                    _logger.LogWarning("User not found: Id={id}", userId);
+                    _logger.LogWarning("> UsersController.GetLoggedUser: User not found: Id={id}", userId);
                     return NotFound("User not found");
                 }
                 else
                 {
-                    _logger.LogInformation("Found user: Id={id}, Username={username}", user.Id, user.Username);
+                    _logger.LogInformation("> UsersController.GetLoggedUser: Found user: Id={id}, Username={username}", user.Id, user.Username);
                     //_logger.LogInformation("Access token {accessToken}", accessToken);
-                    var dto = UserMapper.ToDto(user, accessToken);
+                    var dto = UserMapper.ToDto(user, accessToken, refreshToken);
                     return Ok(dto);
                 }
             });
@@ -313,12 +324,13 @@ namespace GatewayApi.Controllers
         /// Requires authentication.
         /// </remarks>
         [HttpPost("logout")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize]
         public async Task<ActionResult<bool>> Logout(CancellationToken token)
         {
-            return await GetCurrentUser<bool>(token, async (ct, userId, accessToken) =>
+            return await GetCurrentUser<bool>(token, async (ct, userId, accessToken, refreshToken) =>
             {
-                await _authenticationService.RevokeRefreshTokensAsync(userId, ct);
+                var sessionId = GetSessionIdFromHeader();
+                await _authenticationService.RevokeRefreshTokensAsync(userId, sessionId, ct);
                 DeleteTokenCookies();
                 return Ok(true);
             });
@@ -327,30 +339,34 @@ namespace GatewayApi.Controllers
         #region Cookie Management
         private void SetTokenCookies(TokenResponseDto tokenResponse)
         {
-            _logger.LogInformation("Setting token cookies");
-            _tokenCookieService.SetAccessTokenCookie(Response, tokenResponse.AccessToken);
-            _tokenCookieService.SetRefreshTokenCookie(Response, tokenResponse.RefreshToken);
+            //_logger.LogInformation("Setting token cookies");
+            _tokenCookieService.SetAccessTokenCookie(Response, tokenResponse.AccessToken, tokenResponse.SessionId);
+            _tokenCookieService.SetRefreshTokenCookie(Response, tokenResponse.RefreshToken, tokenResponse.SessionId);
         }
-
+        private string? GetAccessTokenFromCookie()
+        {
+            //_logger.LogInformation("Getting access token from cookie");
+            return _tokenCookieService.GetAccessTokenCookie(Request);
+        }
         private string? GetRefreshTokenFromCookie()
         {
-            _logger.LogInformation("Getting refresh token from cookie");
+            //_logger.LogInformation("Getting refresh token from cookie");
             return _tokenCookieService.GetRefreshTokenCookie(Request);
         }
-
         private TokenResponseDto GetTokenResponseDto()
         {
-            _logger.LogInformation("Getting tokens from cookies");
+            //_logger.LogInformation("Getting tokens from cookies");
             return new TokenResponseDto(
                 _tokenCookieService.GetAccessTokenCookie(Request) ?? string.Empty, 
-                _tokenCookieService.GetRefreshTokenCookie(Request) ?? string.Empty);
-        }            
-
+                _tokenCookieService.GetRefreshTokenCookie(Request) ?? string.Empty,
+                GetSessionIdFromHeader());
+        }
         private void DeleteTokenCookies()
         {
-            _logger.LogInformation("Deleting token cookies");
-            _tokenCookieService.DeleteAccessTokenCookie(Response);
-            _tokenCookieService.DeleteRefreshTokenCookie(Response);
+            //_logger.LogInformation("Deleting token cookies");
+            var sessionId = GetSessionIdFromHeader();
+            _tokenCookieService.DeleteAccessTokenCookie(Response, sessionId);
+            _tokenCookieService.DeleteRefreshTokenCookie(Response, sessionId);
         }
         #endregion
 
@@ -361,23 +377,24 @@ namespace GatewayApi.Controllers
 
         private async Task<ActionResult<T>> GetCurrentUser<T>(
             CancellationToken ct,
-            Func<CancellationToken, Guid, string?, Task<ActionResult<T>>> action)
+            Func<CancellationToken, Guid, string?, string?, Task<ActionResult<T>>> action)
         {
             var id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var accessToken = _tokenCookieService.GetAccessTokenCookie(Request);
+            var refreshToken = _tokenCookieService.GetRefreshTokenCookie(Request);
             if (string.IsNullOrEmpty(id))
             {
-                _logger.LogWarning("User ID claim not found");
+                _logger.LogWarning("> UsersController.GetCurrentUser: User ID claim not found");
                 throw new UnauthorizedAccessException("Unauthorized user");
             }
 
             if (Guid.TryParse(id, out var userId))
             {
-                return await action(ct, userId, accessToken);
+                return await action(ct, userId, accessToken, refreshToken);
             }
             else
             {
-                _logger.LogError("Invalid user ID format: {Id}", id);
+                _logger.LogError("> UsersController.GetCurrentUser: Invalid user ID format: {Id}", id);
                 throw new FormatException($"Invalid user ID format: {id}");
             }
         }

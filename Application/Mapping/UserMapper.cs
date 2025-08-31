@@ -14,14 +14,15 @@ namespace Application.Mapping
 {
     public static class UserMapper
     {
-        public static UserInfoDto ToDto(User user, string? accessToken = null)
+        public static UserInfoDto ToDto(User user, string? accessToken = null, string? refreshToken = null)
         {
             return new UserInfoDto
             {
                 Id = user.Id,
                 Username = user.Username,
                 Email = user.Email,
-                AccessToken = accessToken ?? string.Empty
+                AccessToken = accessToken ?? string.Empty,
+                RefreshToken = refreshToken ?? string.Empty,
             };
         }
 

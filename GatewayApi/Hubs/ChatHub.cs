@@ -83,7 +83,7 @@ namespace GatewayApi.Hubs
         }
         #endregion
 
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize]
         public async Task<ChatInfoDto> SendMessage(SendMessageRequestDto message)
         {
             try

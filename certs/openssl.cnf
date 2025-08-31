@@ -1,0 +1,24 @@
+[req]
+distinguished_name = req_distinguished_name
+x509_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+C = AM					# Country Name (2-letter code for Armenia)
+ST = Shirak				# State or Province Name (Shirak region for Gyumri)
+L = Gyumri				# Locality Name (your city)
+O = FlashTalk			# Organization Name (fill with your company or project name)
+OU = Development		# Organizational Unit Name (fill with your department or team)
+CN = localhost			# Common Name (must be localhost for your use case)
+
+[v3_req]
+keyUsage = critical, digitalSignature, keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = localhost			# Primary DNS name for localhost
+IP.1 = 127.0.0.1			# Localhost IP address
+IP.2 = 192.168.27.1			# IPs from AddCors
+IP.3 = 192.168.27.5
+IP.4 = 192.168.27.7

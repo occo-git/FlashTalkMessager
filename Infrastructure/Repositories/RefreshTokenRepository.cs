@@ -1,4 +1,5 @@
-﻿using Domain.Models;
+﻿using Application.Dto;
+using Domain.Models;
 using Infrastructure.Data;
 using Infrastructure.Repositories.Contracts;
 using Microsoft.EntityFrameworkCore;
@@ -24,7 +25,9 @@ namespace Infrastructure.Repositories
 
         public async Task<RefreshToken> AddRefreshTokenAsync(RefreshToken refreshToken, CancellationToken ct)
         {
-            _logger.LogInformation("Adding refresh token for user {UserId}", refreshToken.UserId);
+            await RevokeRefreshTokensAsync(refreshToken.UserId, refreshToken.SessionId, ct);
+
+            _logger.LogInformation($"Adding refresh token: UserId = {refreshToken.UserId}");
             try
             {
                 await _context.RefreshTokens.AddAsync(refreshToken, ct);
@@ -33,7 +36,7 @@ namespace Infrastructure.Repositories
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error adding refresh token");
+                _logger.LogError(ex, $"Error adding refresh token: UserId = {refreshToken.UserId}");
                 throw;
             }
         }
@@ -41,7 +44,7 @@ namespace Infrastructure.Repositories
         public async Task<RefreshToken?> GetRefreshTokenAsync(string tokenValue, CancellationToken ct)
         {
             //_logger.LogInformation("Getting refresh token for value {TokenValue}", tokenValue);
-            _logger.LogInformation("Getting refresh token by value");
+            //_logger.LogInformation("Getting refresh token by value");
             try
             {
                 return await _context.RefreshTokens
@@ -55,25 +58,25 @@ namespace Infrastructure.Repositories
             }
         }
 
-        public async Task<int> RevokeRefreshTokensByUserIdAsync(Guid userId, CancellationToken ct)
+        public async Task<int> RevokeRefreshTokensAsync(Guid userId, string sessionId, CancellationToken ct)
         {
-             _logger.LogInformation("Revoking refresh tokens for user {UserId}", userId);
+            _logger.LogInformation($"Revoking refresh tokens: UserId = {userId}, SessionId = {sessionId}");
             try
             {
                 return await _context.RefreshTokens
-                    .Where(t => t.UserId == userId && !t.Revoked)
+                    .Where(t => t.UserId == userId && t.SessionId == sessionId && !t.Revoked)
                     .ExecuteUpdateAsync(t => t.SetProperty(r => r.Revoked, true), ct);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error revoking refresh tokens for user {UserId}", userId);
+                _logger.LogError(ex, $"Error revoking refresh tokens: UserId = {userId}, SessionId = {sessionId}");
                 throw;
             }
         }
 
         public async Task<bool> ValidateRefreshTokenAsync(Guid userId, string sessionId, CancellationToken ct)
         {
-            _logger.LogInformation("Validating refresh token for user {UserId} and session {SessionId}", userId, sessionId);
+            _logger.LogInformation($"Validating refresh token: UserId = {userId}, SessionId = {sessionId}");
             try
             {
                 return await _context.RefreshTokens
@@ -82,7 +85,7 @@ namespace Infrastructure.Repositories
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error validating refresh token for user {UserId} and session {SessionId}", userId, sessionId);
+                _logger.LogError(ex, $"Error validating refresh token: UserId = {userId}, SessionId = {sessionId}");
                 throw;
             }
         }

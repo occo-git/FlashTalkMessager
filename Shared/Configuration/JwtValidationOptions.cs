@@ -12,6 +12,5 @@ namespace Shared.Configuration
         public bool ValidateAudience { get; set; }
         public bool ValidateLifetime { get; set; }
         public bool ValidateIssuerSigningKey { get; set; }
-        public string? SigningKey { get; set; }
     }
 }

@@ -33,7 +33,7 @@ namespace GatewayApi.Controllers
 
         // GET: api/chats/me/
         [HttpGet("me")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize]
         public async Task<ActionResult<List<ChatInfoDto>>> GetOrCreateChatsByAsync(CancellationToken token)
         {
             return await GetCurrentUser<List<ChatInfoDto>>(token, async (ct, userId, userName) =>
@@ -77,7 +77,7 @@ namespace GatewayApi.Controllers
 
         // POST: api/chats/messages
         [HttpPost("messages")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize]
         public async Task<ActionResult<List<Message>>> GetMessages(
             [FromBody] GetMessagesRequestDto dto,
             CancellationToken token)
@@ -96,7 +96,7 @@ namespace GatewayApi.Controllers
 
         // POST: api/chats/send-message
         [HttpPost("send-message")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize]
         public async Task<ActionResult<ChatInfoDto>> SendMessage(
             [FromBody] SendMessageRequestDto dto,
             CancellationToken token)

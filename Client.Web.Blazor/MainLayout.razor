@@ -99,12 +99,12 @@
     private ApiResultDto? apiResult = null;
     private bool isAuthenticated = false;
 
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        Console.WriteLine("> MainLayout .OnAfterRenderAsync called.");
+        Console.WriteLine("> MainLayout.OnAfterRenderAsync called.");
         if (firstRender)
         {
+            Console.WriteLine("> MainLayout.OnAfterRenderAsync: firstRender");
             await GetSessionIdAsync();
             await IsAuthenticatedAsync();
             StateHasChanged();
@@ -121,7 +121,7 @@
             sessionAccessor.SessionId = Guid.NewGuid().ToString();
             await sessionStorage.SetAsync(HeaderNames.SessionId, sessionAccessor.SessionId);
         }
-        Console.WriteLine($">>>>>>>>>>> SessionId: {sessionAccessor.SessionId}");
+        Console.WriteLine($"> MainLayout.GetSessionIdAsync(): SessionId = {sessionAccessor.SessionId}");
     }
 
     #region Api Client Service
@@ -141,41 +141,38 @@
 
     private async Task TryUpdateTokensAsync()
     {
-        //await IsAuthenticatedAsync();
         if (isAuthenticated)
         {
-            //Console.WriteLine("> TryUpdateTokensAsync calling...");
             var dto = await TryAsync<TokenUpdatedResultDto?>(ApiClientService.TryUpdateTokensAsync);
-            //Console.WriteLine("> TryUpdateTokensAsync called.");
+            Console.WriteLine("> MainLayout.TryUpdateTokensAsync called.");
             if (dto == null)
             {
-                Console.WriteLine("> TokenUpdatedResultDto is null.");
+                Console.WriteLine("> MainLayout.TryUpdateTokensAsync: TokenUpdatedResultDto is null.");
                 apiResult = new ApiResultDto { Success = false, ErrorMessage = "Failed to update tokens" };
                 await SelectMenuItemAsync(MenuItem.Login);
                 return;
             }
             if (dto.IsNullOrEmpty)
             {
-                Console.WriteLine("> Access or Refresh token is empty.");
+                Console.WriteLine("> MainLayout.TryUpdateTokensAsync: Access or Refresh token is empty.");
                 apiResult = new ApiResultDto { Success = false, ErrorMessage = "Access or Refresh token is empty" };
                 await SelectMenuItemAsync(MenuItem.Login);
                 return;
             }
             if (dto.IsUpdated)
             {
-                //Console.WriteLine("> Tokens updated successfully.");
+                Console.WriteLine("> MainLayout.TryUpdateTokensAsync: Tokens updated successfully.");
                 apiResult = new ApiResultDto { Success = true, Message = "Tokens updated" };
                 tokenResponseDto = new TokenResponseDto(dto);
                 await ChatRestart();
             }
             else
             {
-                //Console.WriteLine("> Tokens are still valid.");
+                Console.WriteLine("> MainLayout.TryUpdateTokensAsync: Tokens are still valid.");
                 apiResult = new ApiResultDto { Success = true, Message = "Tokens are still valid" };
                 tokenResponseDto = new TokenResponseDto(dto);
                 await ChatStartAsync();
             }
-            //Console.WriteLine("> TryUpdateTokensAsync finished.");
         }
     }
     #endregion
@@ -186,22 +183,22 @@
     {
         if (tokenResponseDto == null)
         {
-            Console.WriteLine("> Token response is null.");
+            Console.WriteLine("> MainLayout.ChatStartAsync: Token response is null.");
             apiResult = new ApiResultDto { Success = false, ErrorMessage = "Token response is null. Please log in." };
             await SelectMenuItemAsync(MenuItem.Login);
             return;
         }
         if (ChatService.IsConnected)
         {
-            Console.WriteLine("> ChatService is already connected.");
+            Console.WriteLine("> MainLayout.ChatStartAsync: ChatService is already connected.");
             return;
         }
         else
         {
-            Console.WriteLine("> Starting ChatService...");
+            Console.WriteLine("> MainLayout.ChatStartAsync: Starting ChatService...");
             await TryAsync(ct => ChatService.StartAsync(tokenResponseDto, sessionAccessor.SessionId, ct));
             ChatService.OnMessageReceivedAsync += OnChatMessageReceived;
-            Console.WriteLine("> ChatService started.");
+            Console.WriteLine("> MainLayout.ChatStartAsync: ChatService started.");
         }
     }
     private async Task ChatStopAsync()
@@ -360,7 +357,7 @@
         catch (Exception ex)
         {
             apiResult = new ApiResultDto { Success = false, ErrorMessage = $"{ex.Message}" };
-            //Console.WriteLine($"Error: {ex.Message}, {ex.StackTrace}");
+            Console.WriteLine($"Error: {ex.Message}, {ex.StackTrace}");
             return default!;
         }
     }
@@ -369,6 +366,5 @@
     {
         await ChatStopAsync();
         await ChatService.DisposeAsync();
-
     }
 }

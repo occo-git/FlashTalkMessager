@@ -25,10 +25,18 @@
             </tr>
             <tr>
                 <td>
-                    Token:
+                    Access Token:
                 </td>
                 <td>
-                    <div class="small-text">@shortToken</div>
+                    <div class="small-text">@shortAccessToken</div>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Refesh Token:
+                </td>
+                <td>
+                    <div class="small-text">@shortRefreshToken</div>
                 </td>
             </tr>
         </table>
@@ -62,7 +70,8 @@
     [Parameter] public EventCallback OnGoToRegister { get; set; }
 
     private UserInfoDto? userInfoDto = null;
-    private string? shortToken = null;
+    private string? shortAccessToken = null;
+    private string? shortRefreshToken = null;
     private void SetUserInfoDto(UserInfoDto? dto)
     {
         userInfoDto = dto;
@@ -72,8 +81,12 @@
             apiResult = new ApiResultDto { Success = false, ErrorMessage = "User info not available." };
 
         var accessToken = userInfoDto?.AccessToken;
-        var len = accessToken?.Length ?? 0;
-        shortToken = $"{accessToken?.Substring(0, 4)}...{accessToken?.Substring(len - 4)}";
+        var alen = accessToken?.Length ?? 0;
+        shortAccessToken = $"{accessToken?.Substring(0, 4)}...{accessToken?.Substring(alen - 4)}";
+
+        var refreshToken = userInfoDto?.RefreshToken;
+        var rlen = refreshToken?.Length ?? 0;
+        shortRefreshToken = $"{refreshToken?.Substring(0, 4)}...{refreshToken?.Substring(rlen - 4)}";
     }
 
     private ApiResultDto? apiResult = null;

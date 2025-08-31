@@ -3,6 +3,7 @@ using Client.Web.Blazor.Services;
 using Client.Web.Blazor.Services.Contracts;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
+using System.Net;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +25,7 @@ builder.Logging
 #region Registration
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
+builder.Services.AddOptions(builder.Configuration);
 builder.Services.AddHttpServices(builder.Configuration);
 #endregion
 
@@ -37,7 +39,7 @@ builder.Services.AddDataProtection()
 #region Kestrel
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenAnyIP(444, listenOptions => listenOptions.UseHttps("/https/server.pfx", "flash7000$")); // HTTPs, SSL cert
+    options.ListenAnyIP(444, listenOptions => listenOptions.UseHttps("/https/server.pfx", "flashtalk7000$")); // HTTPs, SSL cert
 });
 #endregion
 

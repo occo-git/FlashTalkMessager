@@ -1,6 +1,5 @@
 ﻿using Application.Dto;
 using Client.Web.Blazor.Services.Contracts;
-using Client.Web.Blazor.SessionId;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Options;
 using Shared;
@@ -27,7 +26,7 @@ namespace Client.Web.Blazor.Services
             var _apiSettings = apiSettings?.Value ?? throw new ArgumentNullException(nameof(apiSettings), "ApiSettings cannot be null");
             _hubUrl = _apiSettings.SignalRHubUrl.TrimEnd('/');
 
-            Console.WriteLine($"ChatSignalServiceClient: Initializing with Hub URL: {_hubUrl}");
+            //Console.WriteLine($"ChatSignalServiceClient: Initializing with Hub URL: {_hubUrl}");
         }
 
         public async Task<bool> StartAsync(TokenResponseDto tokenResponseDto, string sessionId, CancellationToken ct)
@@ -58,10 +57,14 @@ namespace Client.Web.Blazor.Services
             _hubConnection = new HubConnectionBuilder()
                 .WithUrl(_hubUrl, options => 
                 {
+                    Console.WriteLine($"> ChatSignalServiceClient.StartAsync '{_hubUrl}': sessionId = {sessionId}");
                     options.Headers.Add(HeaderNames.SessionId, sessionId); 
                     options.AccessTokenProvider = () => Task.FromResult(tokenResponseDto.AccessToken)!;
-                    options.HttpMessageHandlerFactory = hendler => 
-                        new HttpClientHandler { ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator }; // Disable SSL certificate validation (only for development!)
+                    options.HttpMessageHandlerFactory = hendler => new HttpClientHandler
+                    {
+                        //UseCookies = true,
+                        ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator // Disable SSL certificate validation (only for development!)
+                    };
                 })
                 .WithAutomaticReconnect()
                 .Build();
