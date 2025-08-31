@@ -21,17 +21,6 @@ namespace Client.Web.Blazor.Extensions
             if (apiSettings == null || string.IsNullOrEmpty(apiSettings.ApiBaseUrl))
                 throw new ArgumentNullException(nameof(apiSettings), "ApiSettings or ApiBaseUrl cannot be null.");
 
-            //services
-            //    .AddHttpClient<IApiClientService, ApiClientService>(client =>
-            //    {
-            //        client.BaseAddress = new Uri(apiSettings.ApiBaseUrl);
-            //    })
-            //    .ConfigurePrimaryHttpMessageHandler(sp => new  HttpClientHandler
-            //    {
-            //        UseCookies = true,
-            //        ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator // only for development purposes
-            //    });
-
             services.AddSingleton(sp =>
             {
                 return new HttpClientHandler

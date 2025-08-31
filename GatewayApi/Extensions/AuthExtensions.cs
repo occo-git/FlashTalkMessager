@@ -47,7 +47,6 @@ namespace GatewayApi.Extensions
                     jwtBearerOption.Events = sp.GetRequiredService<CustomJwtBearerEvents>();
 
                     var sKey = sp.GetRequiredService<SymmetricSecurityKey>();
-                    Console.WriteLine($"======== AddJwtBearer.key = {sKey}");
                     jwtBearerOption.TokenValidationParameters = new TokenValidationParameters
                     {
                         ValidateIssuer = options.ValidateIssuer,

@@ -19,8 +19,7 @@ namespace GatewayApi.Auth
     {
         private readonly IRefreshTokenRepository _refreshTokenRepository;
 
-        public CustomJwtBearerEvents(
-            IRefreshTokenRepository refreshTokenRepository)
+        public CustomJwtBearerEvents(IRefreshTokenRepository refreshTokenRepository)
         {
             _refreshTokenRepository = refreshTokenRepository ?? throw new ArgumentNullException(nameof(refreshTokenRepository), "RefreshTokenRepository cannot be null.");
         }
@@ -32,13 +31,9 @@ namespace GatewayApi.Auth
             var accessTokenCookieName = $"{CookieNames.AccessToken}-{sessionId}";
 
             if (path.StartsWithSegments("/chatHub"))
-            {
                 context.Token = context.Request.Query[CookieNames.AccessToken];
-            }
             else if (context.Request.Cookies.ContainsKey(accessTokenCookieName))
-            {
                 context.Token = context.Request.Cookies[accessTokenCookieName];
-            }
 
             return Task.CompletedTask;
         }

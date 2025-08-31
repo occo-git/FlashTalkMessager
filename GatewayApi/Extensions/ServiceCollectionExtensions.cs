@@ -22,8 +22,6 @@ namespace GatewayApi.Extensions
         {
             // DbContext registration with Npgsql (PostgreSQL) provider
             var connectionString = configuration.GetConnectionString(_flashTalkConnectionString);
-            //services.AddDbContext<IDataContext, DataContext>(options => options.UseNpgsql(connectionString)); // Standard AddDbContext
-            //services.AddDbContextPool<IDataContext, DataContext>(options => options.UseNpgsql(connectionString)); // Pooled DbContext for better performance
             services.AddDbContextFactory<DataContext>(options => options.UseNpgsql(connectionString)); // DbContextFactory for scenarios where DbContext needs to be created manually
             return services;
         }
