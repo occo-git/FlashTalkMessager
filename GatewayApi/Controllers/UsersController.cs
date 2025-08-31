@@ -57,7 +57,7 @@ namespace GatewayApi.Controllers
         {
             _logger.LogInformation("> UsersController.GetAllInfo");
 
-            await foreach (var user in _userService.GetAllAsyncEnumerable().WithCancellation(ct))
+            await foreach (var user in await _userService.GetAllAsyncEnumerable(ct))
             {
                 yield return UserMapper.ToDto(user);
             }
@@ -171,12 +171,13 @@ namespace GatewayApi.Controllers
         //[Authorize]
         public IActionResult IsAuthenticated(CancellationToken ct)
         {
-            _logger.LogInformation($"> UsersController.IsAuthenticated: sessionId = {GetSessionIdFromHeader()}");
-            _logger.LogInformation($"→→→ AccessToken = {GetAccessTokenFromCookie().ToShort()}");
-            _logger.LogInformation($"→→→ RefreshToken = {GetRefreshTokenFromCookie().ToShort()}");
+            var sessionId = GetSessionIdFromHeader();
+            _logger.LogInformation($"> UsersController.IsAuthenticated: sessionId = {sessionId}");
+            _logger.LogInformation($"→→→ AccessToken = {GetAccessTokenFromCookie(sessionId).ToShort()}");
+            _logger.LogInformation($"→→→ RefreshToken = {GetRefreshTokenFromCookie(sessionId).ToShort()}");
             _logger.LogInformation($"→→→ User = {User?.Identity?.Name}");
             _logger.LogInformation($"→→→ IsAuthenticated = {User?.Identity?.IsAuthenticated}");
-            //_logger.LogInformation($"→→→ Request Headers: {string.Join(", ", Request.Headers)}");
+            _logger.LogInformation($"→→→ Request Headers: {string.Join(", ", Request.Headers)}");
 
             if (User?.Identity != null && User.Identity.IsAuthenticated)
                 return Ok(true);
@@ -234,15 +235,16 @@ namespace GatewayApi.Controllers
         private async Task<ActionResult<TokenUpdatedResultDto>> UpdateTokensAsync(CancellationToken ct)
         {
             _logger.LogInformation("> UsersController.UpdateTokensAsync");
-            string? refreshToken = GetRefreshTokenFromCookie();
+
+            var sessionId = GetSessionIdFromHeader();
+            _logger.LogInformation($"> UsersController.UpdateTokensAsync: (Header) sessionId = {sessionId}");
+
+            string? refreshToken = GetRefreshTokenFromCookie(sessionId);
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
                 _logger.LogError("> UsersController.UpdateTokensAsync: Refresh token cookie is missing or empty");
                 throw new ArgumentNullException("Refresh token is required.");
             }
-
-            var sessionId = GetSessionIdFromHeader();
-            _logger.LogInformation($"> UsersController.UpdateTokensAsync: (Header) sessionId = {sessionId}");
 
             var tokenResponse = await _authenticationService.UpdateTokensAsync(refreshToken, sessionId, ct);
             if (tokenResponse == null)
@@ -297,20 +299,20 @@ namespace GatewayApi.Controllers
         [Authorize]
         public async Task<ActionResult<UserInfoDto>> GetLoggedUser(CancellationToken token)
         {
-            return await GetCurrentUser<UserInfoDto>(token, async (ct, userId, accessToken, refreshToken) =>
+            return await GetCurrentUser<UserInfoDto>(token, async (ct, ut) =>
             {
-                _logger.LogInformation("> UsersController.GetLoggedUser: Finding user: Id={id}", userId);
-                var user = await _userService.GetByIdAsync(userId, ct);
+                _logger.LogInformation("> UsersController.GetLoggedUser: Finding user: Id={id}", ut.UserId);
+                var user = await _userService.GetByIdAsync(ut.UserId, ct);
                 if (user == null)
                 {
-                    _logger.LogWarning("> UsersController.GetLoggedUser: User not found: Id={id}", userId);
+                    _logger.LogWarning("> UsersController.GetLoggedUser: User not found: Id={id}", ut.UserId);
                     return NotFound("User not found");
                 }
                 else
                 {
                     _logger.LogInformation("> UsersController.GetLoggedUser: Found user: Id={id}, Username={username}", user.Id, user.Username);
                     //_logger.LogInformation("Access token {accessToken}", accessToken);
-                    var dto = UserMapper.ToDto(user, accessToken, refreshToken);
+                    var dto = UserMapper.ToDto(user, ut.AccessToken, ut.RefreshToken);
                     return Ok(dto);
                 }
             });
@@ -327,10 +329,10 @@ namespace GatewayApi.Controllers
         [Authorize]
         public async Task<ActionResult<bool>> Logout(CancellationToken token)
         {
-            return await GetCurrentUser<bool>(token, async (ct, userId, accessToken, refreshToken) =>
+            return await GetCurrentUser<bool>(token, async (ct, ut) =>
             {
                 var sessionId = GetSessionIdFromHeader();
-                await _authenticationService.RevokeRefreshTokensAsync(userId, sessionId, ct);
+                await _authenticationService.RevokeRefreshTokensAsync(ut.UserId, sessionId, ct);
                 DeleteTokenCookies();
                 return Ok(true);
             });
@@ -343,23 +345,24 @@ namespace GatewayApi.Controllers
             _tokenCookieService.SetAccessTokenCookie(Response, tokenResponse.AccessToken, tokenResponse.SessionId);
             _tokenCookieService.SetRefreshTokenCookie(Response, tokenResponse.RefreshToken, tokenResponse.SessionId);
         }
-        private string? GetAccessTokenFromCookie()
+        private string? GetAccessTokenFromCookie(string sessionId)
         {
             //_logger.LogInformation("Getting access token from cookie");
-            return _tokenCookieService.GetAccessTokenCookie(Request);
+            return _tokenCookieService.GetAccessTokenCookie(Request, sessionId);
         }
-        private string? GetRefreshTokenFromCookie()
+        private string? GetRefreshTokenFromCookie(string sessionId)
         {
             //_logger.LogInformation("Getting refresh token from cookie");
-            return _tokenCookieService.GetRefreshTokenCookie(Request);
+            return _tokenCookieService.GetRefreshTokenCookie(Request, sessionId);
         }
         private TokenResponseDto GetTokenResponseDto()
         {
+            var sessionId = GetSessionIdFromHeader();
             //_logger.LogInformation("Getting tokens from cookies");
             return new TokenResponseDto(
-                _tokenCookieService.GetAccessTokenCookie(Request) ?? string.Empty, 
-                _tokenCookieService.GetRefreshTokenCookie(Request) ?? string.Empty,
-                GetSessionIdFromHeader());
+                _tokenCookieService.GetAccessTokenCookie(Request, sessionId) ?? string.Empty, 
+                _tokenCookieService.GetRefreshTokenCookie(Request, sessionId) ?? string.Empty,
+                sessionId);
         }
         private void DeleteTokenCookies()
         {
@@ -377,11 +380,12 @@ namespace GatewayApi.Controllers
 
         private async Task<ActionResult<T>> GetCurrentUser<T>(
             CancellationToken ct,
-            Func<CancellationToken, Guid, string?, string?, Task<ActionResult<T>>> action)
+            Func<CancellationToken, UserTokens, Task<ActionResult<T>>> action)
         {
             var id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var accessToken = _tokenCookieService.GetAccessTokenCookie(Request);
-            var refreshToken = _tokenCookieService.GetRefreshTokenCookie(Request);
+            var sessionId = GetSessionIdFromHeader();
+            var accessToken = _tokenCookieService.GetAccessTokenCookie(Request, sessionId);
+            var refreshToken = _tokenCookieService.GetRefreshTokenCookie(Request, sessionId);
             if (string.IsNullOrEmpty(id))
             {
                 _logger.LogWarning("> UsersController.GetCurrentUser: User ID claim not found");
@@ -390,7 +394,7 @@ namespace GatewayApi.Controllers
 
             if (Guid.TryParse(id, out var userId))
             {
-                return await action(ct, userId, accessToken, refreshToken);
+                return await action(ct, new UserTokens(userId, accessToken, refreshToken));
             }
             else
             {
@@ -398,5 +402,7 @@ namespace GatewayApi.Controllers
                 throw new FormatException($"Invalid user ID format: {id}");
             }
         }
+
+        private record UserTokens (Guid UserId, string? AccessToken, string? RefreshToken);
     }
 }

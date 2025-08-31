@@ -13,22 +13,24 @@ namespace Application.Services
 {
     public class ChatService : IChatService
     {
-        private readonly DataContext _context;
-        public ChatService(DataContext context)
+        private readonly IDbContextFactory<DataContext> _dbContextFactory;
+        public ChatService(IDbContextFactory<DataContext> dbContextFactory)
         {
-            _context = context;
+            _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
         }
 
         public async Task<Chat?> GetByIdAsync(Guid id, CancellationToken ct)
         {
-            return await _context.Chats
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            return await context.Chats
                 .Include(c => c.ChatUsers)
                 .FirstOrDefaultAsync(c => c.Id == id, ct);
         }
 
         public async Task<List<Chat>> GetChatsByUserIdAsync(Guid userId, CancellationToken ct)
         {
-            return await _context.Chats
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            return await context.Chats
                 .Where(c => c.ChatUsers.Any(uc => uc.UserId == userId))
                 .Include(c => c.ChatUsers)
                 .ToListAsync(ct);
@@ -36,21 +38,24 @@ namespace Application.Services
 
         public async Task<Chat> AddChatAsync(Chat chat, CancellationToken ct)
         {
-            _context.Chats.Add(chat);
-            await _context.SaveChangesAsync(ct);
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            context.Chats.Add(chat);
+            await context.SaveChangesAsync(ct);
             return chat;
         }
 
         public async Task<Chat> UpdateChatAsync(Chat chat, CancellationToken ct)
         {
-            _context.Chats.Update(chat);
-            await _context.SaveChangesAsync(ct);
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            context.Chats.Update(chat);
+            await context.SaveChangesAsync(ct);
             return chat;
         }
 
         public async Task<List<Message>> GetMessagesAsync(GetMessagesRequestDto dto, CancellationToken ct)
         {
-            var messages = await _context.Messages
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            var messages = await context.Messages
                 .Where(m => m.ChatId == dto.ChatId)
                 .OrderByDescending(m => m.Timestamp)
                 .Skip((dto.PageNumber - 1) * dto.PageSize)
@@ -68,8 +73,9 @@ namespace Application.Services
             message.Id = Guid.NewGuid();
             message.Timestamp = DateTime.UtcNow;
 
-            _context.Messages.Add(message);
-            await _context.SaveChangesAsync(ct);
+            using var context = await _dbContextFactory.CreateDbContextAsync(ct);
+            context.Messages.Add(message);
+            await context.SaveChangesAsync(ct);
             return message;
         }
     }

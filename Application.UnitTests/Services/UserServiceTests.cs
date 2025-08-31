@@ -1,6 +1,8 @@
 ﻿using Application.Services;
 using Domain.Models;
+using Infrastructure.Data;
 using Infrastructure.Data.Contracts;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.EntityFrameworkCore;
@@ -10,6 +12,7 @@ namespace Application.UnitTests.Services
     public class UserServiceTests
     {
         private readonly Mock<IDataContext> _mockContext;
+        private readonly Mock<IDbContextFactory<DataContext>> _mockDBContextFactory;
         private readonly Mock<ILogger<UserService>> _mockLogger;
         private readonly UserService _userService;
         private readonly List<User> _userData;
@@ -17,8 +20,9 @@ namespace Application.UnitTests.Services
         public UserServiceTests()
         {
             _mockContext = new Mock<IDataContext>();
+            _mockDBContextFactory = new Mock<IDbContextFactory<DataContext>>();
             _mockLogger = new Mock<ILogger<UserService>>();
-            _userService = new UserService(_mockContext.Object, _mockLogger.Object);
+            _userService = new UserService(_mockDBContextFactory.Object, _mockLogger.Object);
 
             // Sample user data for tests
             _userData = new List<User>
@@ -37,7 +41,7 @@ namespace Application.UnitTests.Services
         [Fact]
         public void Constructor_ThrowsArgumentNullException_WhenLoggerIsNull()
         {
-            Assert.Throws<ArgumentNullException>(() => new UserService(_mockContext.Object, null!));  // намеренный null
+            Assert.Throws<ArgumentNullException>(() => new UserService(_mockDBContextFactory.Object, null!));  // намеренный null
         }
 
         [Fact]
@@ -165,7 +169,7 @@ namespace Application.UnitTests.Services
 
             // Act
             var result = new List<User>();
-            await foreach (var user in _userService.GetAllAsyncEnumerable())
+            await foreach (var user in await _userService.GetAllAsyncEnumerable(CancellationToken.None))
             {
                 result.Add(user);
             }

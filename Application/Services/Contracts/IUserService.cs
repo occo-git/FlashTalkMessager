@@ -13,7 +13,7 @@ namespace Application.Services.Contracts
         Task<User?> GetByUsernameAsync(string username, CancellationToken ct);
         Task<User?> GetByEmailAsync(string email, CancellationToken ct);
         Task<IEnumerable<User>> GetAllAsync(CancellationToken ct);
-        IAsyncEnumerable<User> GetAllAsyncEnumerable();
+        Task<IAsyncEnumerable<User>> GetAllAsyncEnumerable(CancellationToken ct);
         Task<User> CreateAsync(User user, CancellationToken ct);
         Task<User> UpdateAsync(User user, CancellationToken ct);
         Task<bool> DeleteAsync(Guid id, CancellationToken ct);
