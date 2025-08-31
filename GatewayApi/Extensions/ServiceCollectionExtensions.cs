@@ -1,15 +1,13 @@
 ﻿using Application.Services;
 using Application.Services.Contracts;
-using GatewayApi.Auth;
-using GatewayApi.Services;
-using GatewayApi.Services.Contracts;
+using GatewayApi.Services.Background;
 using Infrastructure.Data;
-using Infrastructure.Data.Contracts;
 using Infrastructure.Repositories;
 using Infrastructure.Repositories.Contracts;
 using Infrastructure.Services;
 using Infrastructure.Services.Contracts;
 using Microsoft.EntityFrameworkCore;
+using Shared;
 using Shared.Configuration;
 
 namespace GatewayApi.Extensions
@@ -28,7 +26,8 @@ namespace GatewayApi.Extensions
 
         public static void AddOptions(this IServiceCollection services, IConfiguration configuration)
         {
-            services.Configure<ApiSettings>(configuration.GetSection("ApiSettings"));
+            services.Configure<ApiSettings>(configuration.GetSection(ApiConstants.ApiSettings));
+            services.Configure<RefreshTokenCleanupOptions>(configuration.GetSection(ApiConstants.RefreshTokenCleanupOptions));
         }
 
         public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
@@ -40,6 +39,13 @@ namespace GatewayApi.Extensions
             services.AddScoped<IAuthenticationService, AuthenticationService>();
             services.AddScoped<IConnectionService, ConnectionService>();
             services.AddScoped<IChatService, ChatService>();
+
+            return services;
+        }
+
+        public static IServiceCollection AddHostedServices(this IServiceCollection services)
+        {
+            services.AddHostedService<RefreshTokenCleanupService>();
             return services;
         }
     }

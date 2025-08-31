@@ -1,6 +1,7 @@
 ﻿using Client.Web.Blazor.Services;
 using Client.Web.Blazor.Services.Contracts;
 using Client.Web.Blazor.SessionId;
+using Shared;
 using Shared.Configuration;
 using System.Net;
 
@@ -10,14 +11,14 @@ namespace Client.Web.Blazor.Extensions
     {
         public static void AddOptions(this IServiceCollection services, IConfiguration configuration)
         {
-            services.Configure<ApiSettings>(configuration.GetSection("ApiSettings"));
+            services.Configure<ApiSettings>(configuration.GetSection(ApiConstants.ApiSettings));
         }
 
         public static void AddHttpServices(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddScoped<SessionAccessor>();
 
-            var apiSettings = configuration.GetSection("ApiSettings").Get<ApiSettings>();
+            var apiSettings = configuration.GetSection(ApiConstants.ApiSettings).Get<ApiSettings>();
             if (apiSettings == null || string.IsNullOrEmpty(apiSettings.ApiBaseUrl))
                 throw new ArgumentNullException(nameof(apiSettings), "ApiSettings or ApiBaseUrl cannot be null.");
 
@@ -31,7 +32,7 @@ namespace Client.Web.Blazor.Extensions
                 };
             });
             services
-                .AddHttpClient("ApiClient", client => { client.BaseAddress = new Uri(apiSettings.ApiBaseUrl); })
+                .AddHttpClient(ApiConstants.ApiClientName, client => { client.BaseAddress = new Uri(apiSettings.ApiBaseUrl); })
                 .ConfigurePrimaryHttpMessageHandler(sp => sp.GetRequiredService<HttpClientHandler>());
 
             services.AddTransient<IApiClientService, ApiClientService>();

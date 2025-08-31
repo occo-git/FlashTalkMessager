@@ -30,7 +30,7 @@ namespace GatewayApi.Auth
             var sessionId = context.HttpContext.Request.Headers[HeaderNames.SessionId].FirstOrDefault();
             var accessTokenCookieName = $"{CookieNames.AccessToken}-{sessionId}";
 
-            if (path.StartsWithSegments("/chatHub"))
+            if (path.StartsWithSegments(ApiConstants.SignalRHubRoute))
                 context.Token = context.Request.Query[CookieNames.AccessToken];
             else if (context.Request.Cookies.ContainsKey(accessTokenCookieName))
                 context.Token = context.Request.Cookies[accessTokenCookieName];
