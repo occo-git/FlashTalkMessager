@@ -196,7 +196,7 @@
         else
         {
             Console.WriteLine("> MainLayout.ChatStartAsync: Starting ChatService...");
-            await TryAsync(ct => ChatService.StartAsync(tokenResponseDto, sessionAccessor.SessionId, ct));
+            await TryAsync(ct => ChatService.StartAsync(tokenResponseDto.AccessToken, sessionAccessor.SessionId, ct));
             ChatService.OnMessageReceivedAsync += OnChatMessageReceived;
             Console.WriteLine("> MainLayout.ChatStartAsync: ChatService started.");
         }

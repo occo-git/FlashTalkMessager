@@ -14,10 +14,5 @@ namespace Application.Dto
         public bool ChatIsNew { get; set; }
         public Guid ReceiverId { get; set; }
         public string Content { get; set; } = string.Empty;
-
-        public string GetJson()
-        {
-            return JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = false });
-        }
     }
 }

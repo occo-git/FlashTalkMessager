@@ -31,21 +31,21 @@ namespace GatewayApi.Controllers
             _logger = logger;
         }
 
-        // GET: api/chats/me/
+        // GET: api/chats/me
         [HttpGet("me")]
         [Authorize]
         public async Task<ActionResult<List<ChatInfoDto>>> GetOrCreateChatsByAsync(CancellationToken token)
         {
-            return await GetCurrentUser<List<ChatInfoDto>>(token, async (ct, userId, userName) =>
+            return await GetCurrentUser<List<ChatInfoDto>>(token, async (ct, userInfo) =>
             {
-                _logger.LogInformation("Getting or creating chats for user {UserId}", userId);
-                var existingChats = await _chatService.GetChatsByUserIdAsync(userId, ct);
+                _logger.LogInformation("Getting or creating chats for user {UserId}", userInfo.UserId);
+                var existingChats = await _chatService.GetChatsByUserIdAsync(userInfo.UserId, ct);
 
                 var existingUserChats = existingChats
-                    .Where(c => c.ChatUsers.Any(uc => uc.UserId == userId))
-                    .ToDictionary(c => c.ChatUsers.First(uc => uc.UserId != userId).UserId);
+                    .Where(c => c.ChatUsers.Any(uc => uc.UserId == userInfo.UserId))
+                    .ToDictionary(c => c.ChatUsers.First(uc => uc.UserId != userInfo.UserId).UserId);
 
-                var allOtherUsers = (await _userService.GetAllAsync(ct)).Where(u => u.Id != userId);
+                var allOtherUsers = (await _userService.GetAllAsync(ct)).Where(u => u.Id != userInfo.UserId);
                 var result = new List<ChatInfoDto>();
 
                 foreach (var otherUser in allOtherUsers)
@@ -64,7 +64,7 @@ namespace GatewayApi.Controllers
                         result.Add(new ChatInfoDto
                         {
                             Id = Guid.NewGuid(),
-                            Name = $"{userName} + {otherUser.Username}",
+                            Name = $"{userInfo.Username} + {otherUser.Username}",
                             ReceiverId = otherUser.Id,
                             IsNew = true,
                         });
@@ -82,14 +82,14 @@ namespace GatewayApi.Controllers
             [FromBody] GetMessagesRequestDto dto,
             CancellationToken token)
         {
-            return await GetCurrentUser<List<Message>>(token, async (ct, userId, userName) =>
+            return await GetCurrentUser<List<Message>>(token, async (ct, userInfo) =>
             {
                 _logger.LogInformation("Getting messages for chat {ChatId}", dto.ChatId);
 
                 var messages = await _chatService.GetMessagesAsync(dto, ct);
                 _logger.LogInformation("Found {MessageCount} messages in chat {ChatId}", messages.Count, dto.ChatId);
 
-                var chatMessages = messages.Select(m => MessageMapper.ToGetMessageDto(m, m.SenderId == userId)).ToList();
+                var chatMessages = messages.Select(m => MessageMapper.ToGetMessageDto(m, m.SenderId == userInfo.UserId)).ToList();
                 return Ok(chatMessages);
             });
         }
@@ -112,18 +112,18 @@ namespace GatewayApi.Controllers
 
             _logger.LogInformation("Sending message to chat {ChatId}", dto.ChatId);
 
-            return await GetCurrentUser<ChatInfoDto>(token, async (ct, userId, userName) =>
+            return await GetCurrentUser<ChatInfoDto>(token, async (ct, userInfo) =>
             {
                 if (dto.ChatIsNew)
                 {
                     _logger.LogWarning("Chat is new, creating it before sending message");
 
-                    var newChat = ChatMapper.ToDomain(dto, userId);
+                    var newChat = ChatMapper.ToDomain(dto, userInfo.UserId);
                     var createdChat = await _chatService.AddChatAsync(newChat, ct);
                     if (createdChat == null)
                         throw new InvalidOperationException("Failed to create chat");
 
-                    _logger.LogInformation("Created new chat with ID {ChatId} for user {UserId}", createdChat.Id, userId);
+                    _logger.LogInformation("Created new chat with ID {ChatId} for user {UserId}", createdChat.Id, userInfo.UserId);
                     // Update message with created chat details
                     dto.ChatId = createdChat.Id;
                     dto.ChatIsNew = false;
@@ -131,7 +131,7 @@ namespace GatewayApi.Controllers
                 }
 
                 _logger.LogInformation("Sending message to chat {ChatId}", dto.ChatId);
-                Message newMessage = MessageMapper.ToDomain(dto, userId);
+                Message newMessage = MessageMapper.ToDomain(dto, userInfo.UserId);
                 var messageCreated = await _chatService.SendMessageAsync(newMessage, ct);
 
                 // Returning 201 Created with a link where the new message can be accessed
@@ -141,7 +141,7 @@ namespace GatewayApi.Controllers
 
         private async Task<ActionResult<T>> GetCurrentUser<T>(
             CancellationToken ct,
-            Func<CancellationToken, Guid, string, Task<ActionResult<T>>> action)
+            Func<CancellationToken, UserInfo, Task<ActionResult<T>>> action)
         {
             var id = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var name = User.FindFirst(ClaimTypes.Name)?.Value;
@@ -153,7 +153,7 @@ namespace GatewayApi.Controllers
 
             if (Guid.TryParse(id, out var userId))
             {
-                return await action(ct, userId, name);
+                return await action(ct, new UserInfo(userId, name));
             }
             else
             {
@@ -161,5 +161,7 @@ namespace GatewayApi.Controllers
                 throw new FormatException($"Invalid user ID format: {id}");
             }
         }
+
+        private record UserInfo(Guid UserId, string Username);
     }
 }
