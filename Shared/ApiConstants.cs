@@ -17,5 +17,7 @@ namespace Shared
         public const string JwtValidationOptions = "JwtValidationOptions";
         public const string RefreshTokenCleanupOptions = "RefreshTokenCleanupOptions";
         public const string RefreshTokenOptions = "RefreshTokenOptions";
+        public const string ChatHubSendMessage = "SendMessage";
+        public const string ChatHubReceiveMessage = "ReceiveMessage";
     }
 }

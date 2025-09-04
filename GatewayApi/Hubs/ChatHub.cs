@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json.Linq;
 using Prometheus;
+using Shared;
 using System.Data;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -34,9 +35,11 @@ namespace GatewayApi.Hubs
         #region Connections
         public override async Task OnConnectedAsync()
         {
+            _logger.LogInformation("ChatHub.OnConnectedAsync: ConnectionId = {ConnectionId}", Context.ConnectionId);
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             await GetCurrentUser(cts.Token, async (ct, userId) =>
             {
+                _logger.LogInformation("ChatHub.OnConnectedAsync: UserId = {UserId}, ConnectionId = {ConnectionId}", userId, Context.ConnectionId);
                 var connection = new Connection
                 {
                     ConnectionId = Context.ConnectionId,
@@ -47,10 +50,10 @@ namespace GatewayApi.Hubs
                 var createdConnection = await _connectionService.CreateAsync(connection, ct);
                 if (createdConnection == null)
                 {
-                    _logger.LogError("Failed to create connection for user {UserId}", userId);
+                    _logger.LogError("ChatHub.OnConnectedAsync: Failed to create connection for user {UserId}", userId);
                     throw new InvalidOperationException("Failed to create connection");
                 }
-                _logger.LogInformation("User {UserId} connected with connection ID {ConnectionId}", userId, Context.ConnectionId);
+                _logger.LogInformation("ChatHub.OnConnectedAsync: connected UserId = {UserId}, ConnectionId = {ConnectionId}", userId, Context.ConnectionId);
                 return createdConnection;
             });  
             
@@ -65,7 +68,7 @@ namespace GatewayApi.Hubs
                 var res = await _connectionService.DeleteAsync(Context.ConnectionId, cts.Token);
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, userId.ToString());
 
-                _logger.LogInformation("Connection {ConnectionId} disconnected", Context.ConnectionId);
+                _logger.LogInformation("ChatHub.OnDisconnectedAsync: disconnected ConnectionId = {ConnectionId}", Context.ConnectionId);
                 return res;
             });
             await base.OnDisconnectedAsync(exception);
@@ -76,7 +79,7 @@ namespace GatewayApi.Hubs
             var connections = await _connectionService.GetByUserIdAsync(userId, ct);
             if (connections == null || !connections.Any())
             {
-                _logger.LogWarning("No connections found for user {UserId}", userId);
+                _logger.LogWarning("No connections found for UserId = {UserId}", userId);
                 return Enumerable.Empty<Connection>();
             }
             return connections;
@@ -88,6 +91,7 @@ namespace GatewayApi.Hubs
         {
             try
             {
+                _logger.LogInformation("Hub.SendMessage: ChatId = {chatId}", message.ChatId);
                 using (var timer = ApiMetrics.MessageProcessingDuration.NewTimer())
                 {
                     var token = Context.ConnectionAborted;
@@ -104,6 +108,7 @@ namespace GatewayApi.Hubs
 
                     return await GetCurrentUser(token, async (ct, userId) =>
                     {
+                        _logger.LogInformation("Hub.SendMessage: UserId = {UserId}, ChatId = {ChatId}, Message = '{Message}'", userId, message.ChatId, message.Content);
                         if (message.ChatIsNew)
                         {
                             token.ThrowIfCancellationRequested();
@@ -114,7 +119,7 @@ namespace GatewayApi.Hubs
                             if (createdChat == null)
                                 throw new InvalidOperationException("Failed to create chat");
 
-                            _logger.LogInformation("Hub.SendMessage: Created new chat with ID {ChatId} for user {UserId}", createdChat.Id, userId);
+                            _logger.LogInformation("Hub.SendMessage: UserId = {UserId}, created new ChatId = {ChatId}", userId, createdChat.Id);
                             // Update message with created chat details
                             message.ChatId = createdChat.Id;
                             message.ChatIsNew = false;
@@ -122,7 +127,7 @@ namespace GatewayApi.Hubs
                         }
 
                         token.ThrowIfCancellationRequested();
-                        _logger.LogInformation("Hub.SendMessage: Sending message '{message}' to chat {chatId}", message.Content, message.ChatId);
+                        _logger.LogInformation("Hub.SendMessage: Sending message UserId = {UserId}, ChatId = {ChatId}, Message = '{Message}'", userId, message.ChatId, message.Content);
                         Message newMessage = MessageMapper.ToDomain(message, userId);
                         var messageCreated = await _chatService.SendMessageAsync(newMessage, ct);
 
@@ -145,11 +150,11 @@ namespace GatewayApi.Hubs
         {
             var dto = MessageMapper.ToGetMessageDto(message, isMine);
             if (dto == null)
-                throw new ArgumentNullException(nameof(dto), "Hub.ReceiveMessage: Message cannot be null");
+                throw new ArgumentNullException(nameof(dto), "Message cannot be null");
 
             var connections = await GetConnectionsByUserIdAsync(userId, ct);
             foreach (var connection in connections)
-                await Clients.Client(connection.ConnectionId).SendAsync("ReceiveMessage", dto, ct);          
+                await Clients.Client(connection.ConnectionId).SendAsync(ApiConstants.ChatHubReceiveMessage, dto, ct);          
         }
 
         private async Task<T> GetCurrentUser<T>(

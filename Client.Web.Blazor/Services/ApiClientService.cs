@@ -19,9 +19,9 @@ namespace Client.Web.Blazor.Services
         private readonly ILogger<ApiClientService> _logger;
 
         public ApiClientService(
-        IHttpClientFactory httpClientFactory,
-        SessionAccessor sessionAccessor,
-        ILogger<ApiClientService> logger)
+            IHttpClientFactory httpClientFactory,
+            SessionAccessor sessionAccessor,
+            ILogger<ApiClientService> logger)
         {
             _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));;
             _sessionAccessor = sessionAccessor ?? throw new ArgumentNullException(nameof(sessionAccessor));

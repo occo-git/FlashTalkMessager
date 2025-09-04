@@ -3,15 +3,15 @@ using Microsoft.AspNetCore.Mvc;
 namespace GatewayApi.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("health")]
     public class HealthController : ControllerBase
     {
         /// <summary>
         /// Health check endpoint
-        /// GET: /health
+        /// GET: /check
         /// </summary>
-        [HttpGet("health")]
-        public IActionResult Health()
+        [HttpGet("check")]
+        public IActionResult Check()
         {
             return Ok("healthy");
         }
