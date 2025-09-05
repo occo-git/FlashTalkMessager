@@ -14,6 +14,6 @@ namespace Application.Services.Contracts
         Task<List<Chat>> GetChatsByUserIdAsync(Guid userId, CancellationToken ct);
         Task<Chat> AddChatAsync(Chat chat, CancellationToken ct);
         Task<List<Message>> GetMessagesAsync(GetMessagesRequestDto dto, CancellationToken ct);
-        Task<Message> SendMessageAsync(Message message, CancellationToken ct);
+        Task<Message> SaveMessageAsync(Message message, CancellationToken ct);
     }
 }

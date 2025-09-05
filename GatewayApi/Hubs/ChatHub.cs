@@ -68,7 +68,7 @@ namespace GatewayApi.Hubs
                 var res = await _connectionService.DeleteAsync(Context.ConnectionId, cts.Token);
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, userId.ToString());
 
-                _logger.LogInformation("ChatHub.OnDisconnectedAsync: disconnected ConnectionId = {ConnectionId}", Context.ConnectionId);
+                _logger.LogInformation($"ChatHub.OnDisconnectedAsync: disconnected ConnectionId = {Context.ConnectionId}, Exception = {exception?.Message}");
                 return res;
             });
             await base.OnDisconnectedAsync(exception);
@@ -127,9 +127,9 @@ namespace GatewayApi.Hubs
                         }
 
                         token.ThrowIfCancellationRequested();
-                        _logger.LogInformation("Hub.SendMessage: Sending message UserId = {UserId}, ChatId = {ChatId}, Message = '{Message}'", userId, message.ChatId, message.Content);
+                        _logger.LogInformation("Hub.SendMessage: Saving message UserId = {UserId}, ChatId = {ChatId}, Message = '{Message}'", userId, message.ChatId, message.Content);
                         Message newMessage = MessageMapper.ToDomain(message, userId);
-                        var messageCreated = await _chatService.SendMessageAsync(newMessage, ct);
+                        var messageCreated = await _chatService.SaveMessageAsync(newMessage, ct);
 
                         await CallReceiveMessageByUserIdAsync(messageCreated, true, userId, ct);
                         await CallReceiveMessageByUserIdAsync(messageCreated, false, message.ReceiverId, ct);

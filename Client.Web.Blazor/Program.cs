@@ -23,6 +23,7 @@ builder.Logging
 #endregion
 
 #region Registration
+builder.Services.AddControllers();
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddOptions(builder.Configuration);
@@ -55,6 +56,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();    
 }
 
+app.MapControllers();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 

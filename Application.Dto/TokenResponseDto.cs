@@ -25,6 +25,7 @@ namespace Application.Dto
         {
             AccessToken = dto.AccessToken;
             RefreshToken = dto.RefreshToken;
+            SessionId = dto.SessionId;
         }
     }
 }

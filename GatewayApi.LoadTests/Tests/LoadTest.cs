@@ -1,4 +1,6 @@
-﻿using GatewayApi.LoadTests.Configuration;
+﻿using Application.Dto;
+using GatewayApi.LoadTests.Configuration;
+using Microsoft.AspNetCore.SignalR.Client;
 using Shared;
 using System;
 using System.Collections.Generic;
@@ -56,8 +58,8 @@ namespace GatewayApi.LoadTests.Tests
                 foreach (var chat in chats)
                     Console.WriteLine($"    ChatId: {chat.Id}, Name: {chat.Name}");
 
-                var startResult = await client.SignalRStartAsync(loginResult.AccessToken, loginResult.SessionId);
-                if (startResult)
+                var result = await client.SignalRStartAsync(loginResult);
+                if (result)
                     Console.WriteLine("SignalR connection started successfully.");
                 else
                 {
@@ -72,11 +74,11 @@ namespace GatewayApi.LoadTests.Tests
                 var firstChat = chats.First();
                 for (int i = 0; i < _testSettings.MessagesPerUser; i++)
                 {
-                    var sendResult = await client.SignalRSendMessageAsync(firstChat, $"{DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss")}: Hello from load test! {i}");
+                    var sendResult = await client.SignalRSendMessageAsync(loginResult.SessionId, firstChat, $"{DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss")}: Hello from load test! {i}");
                     Task.Delay(_testSettings.DelayBetweenMessagesMs).Wait();
                 }                
 
-                var stopResult = await client.SignalRStopAsync();
+                var stopResult = await client.SignalRStopAsync(loginResult.SessionId);
                 if (stopResult)
                     Console.WriteLine("SignalR connection stopped successfully.");
                 else

@@ -7,9 +7,8 @@ using System.Threading.Tasks;
 
 namespace Application.Dto
 {
-    public record SendMessageRequestDto
+    public record ChatSendMessagetDto
     {
-        public string SessionId { get; set; } = string.Empty;
         public Guid ChatId { get; set; }
         public string ChatName { get; set; } = string.Empty;
         public bool ChatIsNew { get; set; }

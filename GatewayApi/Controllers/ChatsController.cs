@@ -94,51 +94,6 @@ namespace GatewayApi.Controllers
             });
         }
 
-        // POST: api/chats/send-message
-        [HttpPost("send-message")]
-        [Authorize]
-        public async Task<ActionResult<ChatInfoDto>> SendMessage(
-            [FromBody] SendMessageRequestDto dto,
-            CancellationToken token)
-        {
-            if (dto == null)
-                throw new ArgumentNullException(nameof(dto), "Message cannot be null");
-
-            if (dto.ChatId == Guid.Empty)
-                throw new ArgumentException("Chat ID is required", nameof(dto.ChatId));
-
-            if (string.IsNullOrWhiteSpace(dto.Content))
-                throw new ArgumentException("Content cannot be empty", nameof(dto.Content));
-
-            _logger.LogInformation("Sending message to chat {ChatId}", dto.ChatId);
-
-            return await GetCurrentUser<ChatInfoDto>(token, async (ct, userInfo) =>
-            {
-                if (dto.ChatIsNew)
-                {
-                    _logger.LogWarning("Chat is new, creating it before sending message");
-
-                    var newChat = ChatMapper.ToDomain(dto, userInfo.UserId);
-                    var createdChat = await _chatService.AddChatAsync(newChat, ct);
-                    if (createdChat == null)
-                        throw new InvalidOperationException("Failed to create chat");
-
-                    _logger.LogInformation("Created new chat with ID {ChatId} for user {UserId}", createdChat.Id, userInfo.UserId);
-                    // Update message with created chat details
-                    dto.ChatId = createdChat.Id;
-                    dto.ChatIsNew = false;
-                    dto.ChatName = createdChat.Name;
-                }
-
-                _logger.LogInformation("Sending message to chat {ChatId}", dto.ChatId);
-                Message newMessage = MessageMapper.ToDomain(dto, userInfo.UserId);
-                var messageCreated = await _chatService.SendMessageAsync(newMessage, ct);
-
-                // Returning 201 Created with a link where the new message can be accessed
-                return Ok(ChatMapper.ToChatInfoDto(dto));
-            });
-        }
-
         private async Task<ActionResult<T>> GetCurrentUser<T>(
             CancellationToken ct,
             Func<CancellationToken, UserInfo, Task<ActionResult<T>>> action)

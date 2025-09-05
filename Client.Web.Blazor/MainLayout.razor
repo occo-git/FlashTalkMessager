@@ -188,7 +188,7 @@
             await SelectMenuItemAsync(MenuItem.Login);
             return;
         }
-        if (ChatService.IsConnected)
+        if (ChatService.IsConnected(sessionAccessor.SessionId))
         {
             Console.WriteLine("> MainLayout.ChatStartAsync: ChatService is already connected.");
             return;
@@ -196,16 +196,21 @@
         else
         {
             Console.WriteLine("> MainLayout.ChatStartAsync: Starting ChatService...");
-            await TryAsync(ct => ChatService.StartAsync(tokenResponseDto.AccessToken, sessionAccessor.SessionId, ct));
+            await TryAsync(ct => ChatService.StartAsync(tokenResponseDto, ct));
             ChatService.OnMessageReceivedAsync += OnChatMessageReceived;
             Console.WriteLine("> MainLayout.ChatStartAsync: ChatService started.");
         }
     }
     private async Task ChatStopAsync()
     {
+        if (tokenResponseDto == null || !ChatService.IsConnected(sessionAccessor.SessionId))
+        {
+            Console.WriteLine("> ChatService is not connected.");
+            return;
+        }
         //Console.WriteLine("> Stopping ChatService...");
         ChatService.OnMessageReceivedAsync -= OnChatMessageReceived;
-        await ChatService.StopAsync();
+        await TryAsync(ct => ChatService.StopAsync(sessionAccessor.SessionId, ct));
         //Console.WriteLine("> ChatService stopped.");
     }
     private async Task ChatRestart()
@@ -213,10 +218,25 @@
         await ChatStopAsync();
         await ChatStartAsync();
     }
-    private async Task OnChatSendMessage(SendMessageRequestDto message)
+    private async Task OnChatSendMessage(ChatSendMessagetDto message)
     {
         await TryUpdateTokensAsync();
-        await TryAsync(ct => ChatService.SendMessageAsync(message, ct));
+        if (tokenResponseDto == null || !ChatService.IsConnected(sessionAccessor.SessionId))
+        {
+            apiResult = new ApiResultDto { Success = false, ErrorMessage = "Chat service is not connected. Please log in." };
+            await SelectMenuItemAsync(MenuItem.Login);
+            return;
+        }
+        var request = new SendMessageRequestDto
+        {
+            SessionId = sessionAccessor.SessionId,
+            ChatId = message.ChatId,
+            ChatName = message.ChatName,
+            ChatIsNew = message.ChatIsNew,
+            ReceiverId = message.ReceiverId,
+            Content = message.Content,
+        };
+        await TryAsync(ct => ChatService.SendMessageAsync(request, ct));
     }
     private async Task OnChatMessageReceived(GetMessageDto message)
     {
@@ -292,7 +312,7 @@
         MenuItem.Profile => @<UserProfile OnGoToLogin="OnGoToLogin" OnGoToRegister="OnGoToRegister" />,
         MenuItem.Login => @<LoginForm OnLoginSuccess="OnLoginSuccess" OnGoToRegister="OnGoToRegister" />,
         MenuItem.Register => @<RegisterForm OnRegisterSuccess="OnRegisterSuccess" OnGoToLogin="OnGoToLogin" />,
-        MenuItem.Messages => @<ChatMessages @ref="chatMessages" OnSendMessage="OnChatSendMessage" />,
+        MenuItem.Messages => @<ChatMessages @ref="chatMessages" OnChatSendMessage="OnChatSendMessage" />,
         MenuItem.Settings => @<Settings />,
         MenuItem.Logout => @<LogoutForm OnLogoutSuccess="OnLogoutSuccess" />,
         _ => @<Welcome />
@@ -365,6 +385,5 @@
     public async ValueTask DisposeAsync()
     {
         await ChatStopAsync();
-        await ChatService.DisposeAsync();
     }
 }
