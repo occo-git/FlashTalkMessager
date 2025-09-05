@@ -13,6 +13,5 @@ namespace Client.Web.Blazor.Services.Contracts
       
         Task<List<ChatInfoDto>?> GetOrCreateChatsAsync(CancellationToken ct);
         Task<List<GetMessageDto>?> GetMessagesAsync(GetMessagesRequestDto dto, CancellationToken ct);
-        Task<ChatInfoDto?> SendMessageAsync(SendMessageRequestDto dto, CancellationToken ct);
     }
 }

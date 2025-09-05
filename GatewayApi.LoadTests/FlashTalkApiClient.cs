@@ -1,7 +1,9 @@
 ﻿using Application.Dto;
 using Client.Web.Blazor.Services;
 using GatewayApi.LoadTests.Configuration;
+using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shared.Configuration;
 using System;
@@ -31,9 +33,11 @@ namespace GatewayApi.LoadTests
             if (string.IsNullOrEmpty(settings.SignalRHubUrl))
                 throw new ArgumentNullException(nameof(settings.SignalRHubUrl), "SignalRHubUrl cannot be null or empty.");
 
+            var connectionManager = new ConnectionManager();
             _httpClient = new HttpClient { BaseAddress = new Uri(_settings.ApiBaseUrl) };
-            var apiSettings = Options.Create(new ApiSettings { SignalRHubUrl = settings.SignalRHubUrl });
-            _signalClient = new ChatSignalServiceClient(apiSettings);
+            var apiSettings = Options.Create(new ApiSettings { ApiBaseUrl = settings.ApiBaseUrl, SignalRHubUrl = settings.SignalRHubUrl });
+            var logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ChatSignalServiceClient>();
+            _signalClient = new ChatSignalServiceClient(connectionManager, apiSettings, logger);
         }
 
         public async Task<bool> CheckHealthAsync()
@@ -104,20 +108,21 @@ namespace GatewayApi.LoadTests
         }
 
         #region SignalR Methods
-        public async Task<bool> SignalRStartAsync(string accessToken, string sessionId)
+        public async Task<bool> SignalRStartAsync(TokenResponseDto dto)
         {
-            if (string.IsNullOrWhiteSpace(accessToken))
-                throw new ArgumentNullException(nameof(accessToken), "Access token cannot be null or empty.");
-            if (string.IsNullOrWhiteSpace(sessionId))
-                throw new ArgumentNullException(nameof(sessionId), "Session ID cannot be null or empty.");
+            if (string.IsNullOrWhiteSpace(dto.AccessToken))
+                throw new ArgumentNullException(nameof(dto.AccessToken), "Access token cannot be null or empty");
+            if (string.IsNullOrWhiteSpace(dto.SessionId))
+                throw new ArgumentNullException(nameof(dto.SessionId), "Session ID cannot be null or empty");
 
-            return await _signalClient.StartAsync(accessToken, sessionId, CancellationToken.None);
+            return await _signalClient.StartAsync(dto, CancellationToken.None);
         }
 
-        public async Task<bool> SignalRSendMessageAsync(ChatInfoDto chatInfoDto, string content)
+        public async Task<bool> SignalRSendMessageAsync(string sessionId, ChatInfoDto chatInfoDto, string content)
         {
             var message = new SendMessageRequestDto
             {
+                SessionId = sessionId,
                 ChatId = chatInfoDto.Id,
                 ChatName = chatInfoDto.Name,
                 ChatIsNew = chatInfoDto.IsNew,
@@ -127,9 +132,9 @@ namespace GatewayApi.LoadTests
             return await _signalClient.SendMessageAsync(message, CancellationToken.None);
         }
 
-        public async Task<bool> SignalRStopAsync()
+        public async Task<bool> SignalRStopAsync(string sessionId)
         {
-            return await _signalClient.StopAsync();
+            return await _signalClient.StopAsync(sessionId, CancellationToken.None);
         }
         #endregion
 

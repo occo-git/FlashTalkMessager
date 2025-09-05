@@ -39,6 +39,7 @@ namespace Client.Web.Blazor.Extensions
 
             // SignalR client
             services.AddScoped<IChatSignalServiceClient, ChatSignalServiceClient>();
+            services.AddSingleton<IConnectionManager, ConnectionManager>();
         }
     }
 }

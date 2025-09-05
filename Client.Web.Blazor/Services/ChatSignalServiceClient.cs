@@ -15,90 +15,67 @@ namespace Client.Web.Blazor.Services
 {
     public class ChatSignalServiceClient : IChatSignalServiceClient
     {
-        private HubConnection? _hubConnection;
+        private readonly IConnectionManager _connectionManager;
         private readonly string _hubUrl = String.Empty;
+        private readonly ILogger<ChatSignalServiceClient> _logger;
 
         public event Func<GetMessageDto, Task>? OnMessageReceivedAsync;
 
         public ChatSignalServiceClient(
-            IOptions<ApiSettings> apiSettings)
+            IConnectionManager connectionManager,
+            IOptions<ApiSettings> apiSettings,
+            ILogger<ChatSignalServiceClient> logger)
         {
+            _connectionManager = connectionManager ?? throw new ArgumentNullException(nameof(connectionManager));
             var _apiSettings = apiSettings?.Value ?? throw new ArgumentNullException(nameof(apiSettings), "ApiSettings cannot be null");
             _hubUrl = _apiSettings.SignalRHubUrl.TrimEnd('/');
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
             //Console.WriteLine($"ChatSignalServiceClient: Initializing with Hub URL: {_hubUrl}");
         }
 
-        public async Task<bool> StartAsync(string accessToken, string sessionId, CancellationToken ct)
+        public async Task<bool> StartAsync(TokenResponseDto dto, CancellationToken ct)
         {
+            var _hubConnection = _connectionManager.GetOrCreateConnection(dto, _hubUrl);
             if (_hubConnection != null)
             {
                 var state = _hubConnection.State;
-                Console.WriteLine($"> ChatSignalServiceClient.StartAsync: Hub connection state: {state}");
+                _logger.LogInformation($"> ChatSignalServiceClient.StartAsync: Hub connection state: {state}");
                 if (state == HubConnectionState.Connected || state == HubConnectionState.Connecting)
                 {
-                    Console.WriteLine("> ChatSignalServiceClient: SignalR connection is already started or starting.");
+                    _logger.LogInformation("> ChatSignalServiceClient: SignalR connection is already started or starting.");
+                    return true;
                 }
                 else if (state == HubConnectionState.Disconnected)
-                {
-                    Console.WriteLine("> ChatSignalServiceClient.StartAsync: Starting SignalR hub connection...");
-                    await _hubConnection.StartAsync(ct);
-                    Console.WriteLine($"> ChatSignalServiceClient.StartAsync: Hub connection state: {_hubConnection.State}");
+                {      
+                    _logger.LogInformation("> ChatSignalServiceClient.StartAsync: Configuring SignalR hub connection...");              
+                    _hubConnection.On<GetMessageDto>(ApiConstants.ChatHubReceiveMessage, message =>
+                    {
+                        _logger.LogInformation($"> ChatSignalServiceClient.On.ReceiveMessage: {message.Content}");
+                        OnMessageReceivedAsync?.Invoke(message);
+                    });
+                    _logger.LogInformation("> ChatSignalServiceClient.StartAsync: Starting SignalR hub connection...");
+                    await _hubConnection.StartAsync(ct);            
+
+                    _logger.LogInformation($"> ChatSignalServiceClient.StartAsync: Hub connection state: {_hubConnection.State}");
                     return _hubConnection.State == HubConnectionState.Connected;
                 }
             }
-
-            if (string.IsNullOrWhiteSpace(_hubUrl))
-                throw new ArgumentException("Hub URL cannot be null or empty", nameof(_hubUrl));
-            if (string.IsNullOrWhiteSpace(accessToken))
-                throw new ArgumentException("Access token cannot be null", nameof(accessToken));
-
-            Console.WriteLine($"> ChatSignalServiceClient.StartAsync: Build SignalR hub connection to '{_hubUrl}'");
-            _hubConnection = new HubConnectionBuilder()
-                .WithUrl(_hubUrl, options => 
-                {
-                    Console.WriteLine($"> ChatSignalServiceClient.StartAsync '{_hubUrl}': sessionId = {sessionId}");
-                    options.Headers.Add(HeaderNames.SessionId, sessionId); 
-                    options.AccessTokenProvider = () => Task.FromResult(accessToken)!;
-                    options.HttpMessageHandlerFactory = hendler => new HttpClientHandler
-                    {
-                        //UseCookies = true,
-                        ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator // Disable SSL certificate validation (only for development!)
-                    };
-                })
-                .WithAutomaticReconnect()
-                .Build();
-
-            Console.WriteLine("> ChatSignalServiceClient.StartAsync: Configuring SignalR hub connection...");
-            _hubConnection.On<GetMessageDto>(ApiConstants.ChatHubReceiveMessage, message =>
-            {
-                Console.WriteLine($"> ChatSignalServiceClient.On.ReceiveMessage: {message.Content}");
-                OnMessageReceivedAsync?.Invoke(message);
-            });
-
-            Console.WriteLine("> ChatSignalServiceClient.StartAsync: Starting SignalR hub connection...");
-            await _hubConnection.StartAsync(ct);
-
-            Console.WriteLine($"> ChatSignalServiceClient.StartAsync: Hub connection state: {_hubConnection.State}");
-            return _hubConnection.State == HubConnectionState.Connected;
+            throw new InvalidOperationException("Hub connection is not created. Cannot start connection.");
         }
 
-        public bool IsConnected
+        public bool IsConnected(string sestionId)
         {
-            get
-            {
-                if (_hubConnection == null)
-                    return false;
-
-                return _hubConnection.State == HubConnectionState.Connected;
-            }            
+            return _connectionManager.IsConnected(sestionId);
         }
 
         public async Task<bool> SendMessageAsync(SendMessageRequestDto message, CancellationToken ct)
         {
-            Console.WriteLine($"> ChatSignalServiceClient.SendMessageAsync: {message.Content}");
+            _logger.LogInformation($"> ChatSignalServiceClient.SendMessageAsync: {message.Content}");
             if (message == null)
                 throw new ArgumentNullException(nameof(message), "Message cannot be null");
+
+            var _hubConnection = _connectionManager.GetConnection(message.SessionId);
             if (_hubConnection == null)
                 throw new InvalidOperationException("Hub connection is not started. Call StartAsync first.");
 
@@ -109,27 +86,22 @@ namespace Client.Web.Blazor.Services
             }
             else if (_hubConnection.State == HubConnectionState.Connecting)
             {
-                Console.WriteLine("> ChatSignalServiceClient.SendMessageAsync: SignalR connection is still connecting. Please wait.");
+                _logger.LogInformation("> ChatSignalServiceClient.SendMessageAsync: SignalR connection is still connecting. Please wait.");
                 return false;
             }
 
             return false;
         }
 
-        public async Task<bool> StopAsync()
+        public async Task<bool> StopAsync(string sessionId, CancellationToken ct)
         {
-            Console.WriteLine("> ChatSignalServiceClient.StopAsync: Stopping SignalR hub connection...");
+            var _hubConnection = _connectionManager.GetConnection(sessionId);
+            _logger.LogInformation("> ChatSignalServiceClient.StopAsync: Stopping SignalR hub connection...");
             if (_hubConnection != null)
-                await _hubConnection.StopAsync();
-            Console.WriteLine("> ChatSignalServiceClient.StopAsync: SignalR hub connection stopped.");
+                await _hubConnection.StopAsync(ct);
+            _logger.LogInformation("> ChatSignalServiceClient.StopAsync: SignalR hub connection stopped.");
 
             return _hubConnection?.State == HubConnectionState.Disconnected;
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            if (_hubConnection != null)
-                await _hubConnection.DisposeAsync();
         }
     }
 }

@@ -68,7 +68,7 @@ namespace Application.Services
             return messages;
         }
 
-        public async Task<Message> SendMessageAsync(Message message, CancellationToken ct)
+        public async Task<Message> SaveMessageAsync(Message message, CancellationToken ct)
         {
             message.Id = Guid.NewGuid();
             message.Timestamp = DateTime.UtcNow;

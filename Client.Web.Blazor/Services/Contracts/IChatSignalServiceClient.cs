@@ -1,4 +1,5 @@
 ﻿using Application.Dto;
+using Microsoft.AspNetCore.SignalR.Client;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,12 +8,12 @@ using System.Threading.Tasks;
 
 namespace Client.Web.Blazor.Services.Contracts
 {
-    public interface IChatSignalServiceClient : IAsyncDisposable
+    public interface IChatSignalServiceClient 
     {
         event Func<GetMessageDto, Task>? OnMessageReceivedAsync;
-        Task<bool> StartAsync(string accessToken, string sessionId, CancellationToken ct);
-        bool IsConnected { get; }
+        Task<bool> StartAsync(TokenResponseDto dto, CancellationToken ct);
+        bool IsConnected(string sestionId);
         Task<bool> SendMessageAsync(SendMessageRequestDto message, CancellationToken ct);
-        Task<bool> StopAsync();        
+        Task<bool> StopAsync(string sessionId, CancellationToken ct);        
     }
 }

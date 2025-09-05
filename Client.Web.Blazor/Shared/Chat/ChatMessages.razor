@@ -37,7 +37,7 @@
 </div>
 
 @code {
-    [Parameter] public EventCallback<SendMessageRequestDto> OnSendMessage { get; set; }
+    [Parameter] public EventCallback<ChatSendMessagetDto> OnChatSendMessage { get; set; }
 
     private ChatInfoDto? selectedChat = null;
     private List<GetMessageDto>? chatMessages = null;
@@ -93,9 +93,9 @@
     {
         if (selectedChat != null && isNewMessage)
         {
-            if (OnSendMessage.HasDelegate)
+            if (OnChatSendMessage.HasDelegate)
             {
-                var message = new SendMessageRequestDto
+                var message = new ChatSendMessagetDto
                 {
                     ChatId = selectedChat.Id,
                     ChatIsNew = selectedChat.IsNew,
@@ -103,7 +103,7 @@
                     ReceiverId = selectedChat.ReceiverId,
                     Content = newMessageContent
                 };
-                await OnSendMessage.InvokeAsync(message);
+                await OnChatSendMessage.InvokeAsync(message);
             }
         }
     }

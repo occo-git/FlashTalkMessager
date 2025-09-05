@@ -141,14 +141,6 @@ namespace Client.Web.Blazor.Services
                 return await LogResponseAsync<List<GetMessageDto>>(response, "Get messages successful", "Get messages failed");
             });
         }
-        public async Task<ChatInfoDto?> SendMessageAsync(SendMessageRequestDto dto, CancellationToken ct)
-        {
-            return await TryAsync(ct, async _ct =>
-            {
-                var response = await Post("api/chats/send-message", _ct, dto);
-                return await LogResponseAsync<ChatInfoDto>(response, "Send message successful", "Send message failed");
-            });
-        }
         #endregion
 
         private async Task<T?> LogResponseAsync<T>(HttpResponseMessage response, string successLogMessage, string failureLogMessage)
