@@ -8,7 +8,7 @@ namespace Shared.Configuration
 {
     public class ApiSettings
     {
-        public string ApiBaseUrl { get; set; } = "https://flashtalk_api:443/";
-        public string SignalRHubUrl { get; set; } = "https://flashtalk_api:443/chatHub";
+        public string ApiBaseUrl { get; set; } = "https://nginx:444/api/";
+        public string SignalRHubUrl { get; set; } = "https://nginx:444/api/chatHub";
     }
 }

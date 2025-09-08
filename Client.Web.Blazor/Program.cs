@@ -38,9 +38,13 @@ builder.Services.AddDataProtection()
 #endregion
 
 #region Kestrel
+var port = Environment.GetEnvironmentVariable("ASPNETCORE_URLS")?.Split(':').Last() ?? "444";
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenAnyIP(444, listenOptions => listenOptions.UseHttps("/https/server.pfx", "flashtalk7000$")); // HTTPs, SSL cert
+    options.Limits.MaxConcurrentConnections = 500;
+    options.Limits.MaxRequestBodySize = 10 * 1024 * 1024; // 10MB
+    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(5);
+    options.ListenAnyIP(int.Parse(port), listenOptions => listenOptions.UseHttps("/https/server.pfx", "flashtalk7000$")); // HTTPs, SSL cert
 });
 #endregion
 

@@ -18,7 +18,7 @@ scrape_configs:
       ca_file: /etc/prometheus/certs/server.crt     # опционально: путь к CA сертификату
       insecure_skip_verify: true                    # опционально: отключить проверку сертификата
     static_configs:
-      - targets: ['flashtalk_api:443']  
+      - targets: ['flashtalk_api:444/api/']  
   
   # - job_name: 'frontend'
   #   scheme: https                                   # указываем HTTPS

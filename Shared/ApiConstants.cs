@@ -9,7 +9,7 @@ namespace Shared
     public static class ApiConstants
     {
         public const string ApiClientName = "ApiClient";
-        public const string SignalRHubRoute = "/chatHub";
+        public const string SignalRHubRoute = "/api/chatHub";
 
         public const string JwtSecretEnv = "JWT_SECRET_KEY";
         public const string AccessTokenOptions = "AccessTokenOptions";
