@@ -48,20 +48,14 @@ namespace GatewayApi.Services.Background
             using var dbContext = await _dbContextFactory.CreateDbContextAsync(ct);
             var now = DateTime.UtcNow;
 
-            var expiredOrRevokedTokens = await dbContext.Set<RefreshToken>()
+            var deletedCount = await dbContext.Set<RefreshToken>()
                 .Where(t => t.ExpiresAt < now || t.Revoked)
-                .ToListAsync(ct);
+                .ExecuteDeleteAsync(ct);
 
-            if (expiredOrRevokedTokens.Any())
-            {
-                dbContext.Set<RefreshToken>().RemoveRange(expiredOrRevokedTokens);
-                await dbContext.SaveChangesAsync(ct);
-                _logger.LogInformation("Cleaned up {Count} expired or revoked tokens", expiredOrRevokedTokens.Count);
-            }
+            if (deletedCount > 0)
+                _logger.LogInformation("Cleaned up {Count} expired or revoked tokens", deletedCount);
             else
-            {
                 _logger.LogInformation("No expired or revoked tokens found for cleanup");
-            }
         }
     }
 }
