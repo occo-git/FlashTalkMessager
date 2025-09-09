@@ -20,15 +20,18 @@ namespace GatewayApi.Hubs
     {
         private readonly IChatService _chatService;
         private readonly IConnectionService _connectionService;
+        private readonly IHubContext<ChatHub> _hubContext;
         private readonly ILogger<ChatHub> _logger;
 
         public ChatHub(
             IChatService chatService,
             IConnectionService connectionService,
+            IHubContext<ChatHub> hubContext,
             ILogger<ChatHub> logger)
         {
             _chatService = chatService;
             _connectionService = connectionService;
+            _hubContext = hubContext;
             _logger = logger;
         }
 
@@ -154,7 +157,7 @@ namespace GatewayApi.Hubs
 
             var connections = await GetConnectionsByUserIdAsync(userId, ct);
             foreach (var connection in connections)
-                await Clients.Client(connection.ConnectionId).SendAsync(ApiConstants.ChatHubReceiveMessage, dto, ct);          
+                await _hubContext.Clients.Client(connection.ConnectionId).SendAsync(ApiConstants.ChatHubReceiveMessage, dto, ct);          
         }
 
         private async Task<T> GetCurrentUser<T>(

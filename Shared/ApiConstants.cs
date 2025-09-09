@@ -19,5 +19,6 @@ namespace Shared
         public const string RefreshTokenOptions = "RefreshTokenOptions";
         public const string ChatHubSendMessage = "SendMessage";
         public const string ChatHubReceiveMessage = "ReceiveMessage";
+        public const string SignalROptions = "SignalROptions";
     }
 }

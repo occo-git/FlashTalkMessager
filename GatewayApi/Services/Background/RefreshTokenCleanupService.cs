@@ -9,7 +9,7 @@ namespace GatewayApi.Services.Background
     public class RefreshTokenCleanupService : BackgroundService
     {
         private readonly IDbContextFactory<DataContext> _dbContextFactory;
-        private readonly TimeSpan _cleanupInterval;
+        private readonly TimeSpan _cleanupInterval = TimeSpan.FromMinutes(1);
         private readonly ILogger<RefreshTokenCleanupService> _logger;
 
         public RefreshTokenCleanupService(
@@ -20,8 +20,6 @@ namespace GatewayApi.Services.Background
             _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
             if (options?.Value?.CleanupIntervalMinutes > 0)
                 _cleanupInterval = TimeSpan.FromMinutes(options.Value.CleanupIntervalMinutes);
-            else
-                _cleanupInterval = TimeSpan.FromMinutes(1);
 
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }

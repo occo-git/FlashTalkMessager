@@ -61,11 +61,11 @@ builder.Services.AddValidators(); // FluentValidation registration
 builder.Services.AddOptions(builder.Configuration); // Options registration
 builder.Services.AddInfrastructureServices(); // Infrastructure services registration
 builder.Services.AddHostedServices(); // Hosted services registration
+builder.Services.AddSignalR(builder.Configuration); // SignalR registration
 builder.Services.AddJwtAuthenticationOptions(builder.Configuration); // JWT authentication options registration
 builder.Services.AddJwtAuthentication(builder.Configuration); // JWT authentication registration
 builder.Services.AddEndpointsApiExplorer(); // Swagger/OpenAPI
 builder.Services.AddSwaggerGen(); // SwaggerGen
-builder.Services.AddSignalR(options => { options.EnableDetailedErrors = true; }); // SignalR registration
 #endregion
 
 #region Data Protection
@@ -126,7 +126,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Register the SignalR hub route
-app.MapHub<ChatHub>(ApiConstants.SignalRHubRoute); 
+app.MapHub<ChatHub>(ApiConstants.SignalRHubRoute);
 app.MapMetrics(); // Prometheus metrics
 app.MapControllers();
 

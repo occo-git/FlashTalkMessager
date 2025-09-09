@@ -11,6 +11,7 @@ using Infrastructure.Services.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Shared;
 using Shared.Configuration;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace GatewayApi.Extensions
 {
@@ -30,6 +31,7 @@ namespace GatewayApi.Extensions
         {
             services.Configure<ApiSettings>(configuration.GetSection(ApiConstants.ApiSettings));
             services.Configure<RefreshTokenCleanupOptions>(configuration.GetSection(ApiConstants.RefreshTokenCleanupOptions));
+            services.Configure<SignalROptions>(configuration.GetSection(ApiConstants.SignalROptions));
         }
 
         public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
@@ -50,6 +52,22 @@ namespace GatewayApi.Extensions
         public static IServiceCollection AddHostedServices(this IServiceCollection services)
         {
             services.AddHostedService<RefreshTokenCleanupService>();
+            return services;
+        }
+
+        public static IServiceCollection AddSignalR(this IServiceCollection services, IConfiguration configuration)
+        {
+            var signalROptions = configuration.GetSection(ApiConstants.SignalROptions).Get<SignalROptions>();
+            if (signalROptions == null)
+                throw new ArgumentNullException(nameof(signalROptions), "SignalROptions cannot be null.");
+
+            services.AddSignalR(options => // SignalR registration
+            {
+                options.HandshakeTimeout = TimeSpan.FromSeconds(signalROptions.HandshakeTimeoutSeconds);
+                options.KeepAliveInterval = TimeSpan.FromSeconds(signalROptions.KeepAliveIntervalSeconds);
+                options.ClientTimeoutInterval = TimeSpan.FromSeconds(signalROptions.TimeoutSeconds);
+            });
+
             return services;
         }
     }
