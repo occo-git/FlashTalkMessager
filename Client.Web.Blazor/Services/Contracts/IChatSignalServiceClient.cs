@@ -15,6 +15,6 @@ namespace Client.Web.Blazor.Services.Contracts
         bool IsConnected(string sestionId);
         Task<bool> SendMessageAsync(SendMessageRequestDto message, CancellationToken ct);
         Task<bool> StopAsync(string sessionId, CancellationToken ct);
-        Task DisposeAsync(string sessionId);
+        Task<bool> DisposeAsync(string sessionId, CancellationToken ct);
     }
 }

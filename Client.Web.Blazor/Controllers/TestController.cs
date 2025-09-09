@@ -73,7 +73,7 @@ namespace Client.Web.Blazor.Controllers
         {
             //_logger.LogInformation("+++ Stopping SignalR connection for sessionId = {sessionId}", sessionId);
             await _chatSignalServiceClient.StopAsync(sessionId, ct);
-            await _chatSignalServiceClient.DisposeAsync(sessionId);
+            await _chatSignalServiceClient.DisposeAsync(sessionId, ct);
             //_logger.LogInformation($"+++ SignalR sessionId = {sessionId} is stopped.");
             return Ok($"SignalR sessionId = {sessionId} is stopped and disposed");
         }
