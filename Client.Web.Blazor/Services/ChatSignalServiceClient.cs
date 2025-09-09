@@ -40,24 +40,24 @@ namespace Client.Web.Blazor.Services
             if (_hubConnection != null)
             {
                 var state = _hubConnection.State;
-                _logger.LogInformation($"> ChatSignalServiceClient.StartAsync: Hub connection state: {state}");
+                //_logger.LogInformation($"> ChatSignalServiceClient.StartAsync: Hub connection state: {state}");
                 if (state == HubConnectionState.Connected || state == HubConnectionState.Connecting)
                 {
-                    _logger.LogInformation("> ChatSignalServiceClient: SignalR connection is already started or starting.");
+                    //_logger.LogInformation("> ChatSignalServiceClient: SignalR connection is already started or starting.");
                     return true;
                 }
                 else if (state == HubConnectionState.Disconnected)
                 {      
-                    _logger.LogInformation("> ChatSignalServiceClient.StartAsync: Configuring SignalR hub connection...");              
+                    //_logger.LogInformation("> ChatSignalServiceClient.StartAsync: Configuring SignalR hub connection...");              
                     _hubConnection.On<GetMessageDto>(ApiConstants.ChatHubReceiveMessage, message =>
                     {
-                        _logger.LogInformation($"> ChatSignalServiceClient.On.ReceiveMessage: {message.Content}");
+                        //_logger.LogInformation($"> ChatSignalServiceClient.On.ReceiveMessage: {message.Content}");
                         OnMessageReceivedAsync?.Invoke(message);
                     });
-                    _logger.LogInformation("> ChatSignalServiceClient.StartAsync: Starting SignalR hub connection...");
+                    //_logger.LogInformation("> ChatSignalServiceClient.StartAsync: Starting SignalR hub connection...");
                     await _hubConnection.StartAsync(ct);            
 
-                    _logger.LogInformation($"> ChatSignalServiceClient.StartAsync: Hub connection state: {_hubConnection.State}");
+                    //_logger.LogInformation($"> ChatSignalServiceClient.StartAsync: Hub connection state: {_hubConnection.State}");
                     return _hubConnection.State == HubConnectionState.Connected;
                 }
             }
@@ -71,7 +71,7 @@ namespace Client.Web.Blazor.Services
 
         public async Task<bool> SendMessageAsync(SendMessageRequestDto message, CancellationToken ct)
         {
-            _logger.LogInformation($"> ChatSignalServiceClient.SendMessageAsync: {message.Content}");
+            //_logger.LogInformation($"> ChatSignalServiceClient.SendMessageAsync: {message.Content}");
             if (message == null)
                 throw new ArgumentNullException(nameof(message), "Message cannot be null");
 
@@ -86,7 +86,7 @@ namespace Client.Web.Blazor.Services
             }
             else if (_hubConnection.State == HubConnectionState.Connecting)
             {
-                _logger.LogInformation("> ChatSignalServiceClient.SendMessageAsync: SignalR connection is still connecting. Please wait.");
+                //_logger.LogInformation("> ChatSignalServiceClient.SendMessageAsync: SignalR connection is still connecting. Please wait.");
                 return false;
             }
 
@@ -96,10 +96,10 @@ namespace Client.Web.Blazor.Services
         public async Task<bool> StopAsync(string sessionId, CancellationToken ct)
         {
             var _hubConnection = _connectionManager.GetConnection(sessionId);
-            _logger.LogInformation("> ChatSignalServiceClient.StopAsync: Stopping SignalR hub connection...");
+            //_logger.LogInformation("> ChatSignalServiceClient.StopAsync: Stopping SignalR hub connection...");
             if (_hubConnection != null)
                 await _hubConnection.StopAsync(ct);
-            _logger.LogInformation("> ChatSignalServiceClient.StopAsync: SignalR hub connection stopped.");
+            //_logger.LogInformation("> ChatSignalServiceClient.StopAsync: SignalR hub connection stopped.");
 
             return _hubConnection?.State == HubConnectionState.Disconnected;
         }

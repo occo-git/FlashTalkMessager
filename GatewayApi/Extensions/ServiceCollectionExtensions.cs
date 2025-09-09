@@ -1,5 +1,7 @@
 ﻿using Application.Services;
 using Application.Services.Contracts;
+using Application.Services.Tokens;
+using Domain.Models;
 using GatewayApi.Services.Background;
 using Infrastructure.Data;
 using Infrastructure.Repositories;
@@ -34,6 +36,8 @@ namespace GatewayApi.Extensions
         {
             services.AddScoped<IDatabaseMigrationService, DatabaseMigrationService>();
             services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+            services.AddScoped<ITokenGenerator<string>, JwtAccessTokenGenerator>();
+            services.AddScoped<ITokenGenerator<RefreshToken>, JwtRefreshTokenGenerator>();
 
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IAuthenticationService, AuthenticationService>();

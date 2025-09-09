@@ -10,7 +10,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Shared;
+using Shared.Configuration;
 using System.Data;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
@@ -22,21 +24,24 @@ namespace GatewayApi.Controllers
     public class UsersController : ControllerBase
     {
         private readonly int _accessTokenMinutesBeforeExpiration = 3;
-
         private readonly IUserService _userService;
         private readonly IAuthenticationService _authenticationService;
         private readonly ITokenCookieService _tokenCookieService;
         private readonly ILogger<UsersController> _logger;
 
         public UsersController(
-            IUserService userService,
+            IOptions<AccessTokenOptions> accessTokenOptions,
             IAuthenticationService authenticationService,
+            IUserService userService,
             ITokenCookieService tokenCookieService,
             ILogger<UsersController> logger)
         {
+            if (accessTokenOptions == null || accessTokenOptions.Value == null)
+                throw new ArgumentNullException(nameof(accessTokenOptions));
+            _accessTokenMinutesBeforeExpiration = accessTokenOptions.Value.MinutesBeforeExpiration;
+
             _userService = userService;
-            _authenticationService = authenticationService;
-            _accessTokenMinutesBeforeExpiration = authenticationService.AccessTokenMinutesBeforeExpiration;
+            _authenticationService = authenticationService;            
             _tokenCookieService = tokenCookieService;
             _logger = logger;
         }
@@ -91,7 +96,7 @@ namespace GatewayApi.Controllers
         /// Registers a new user
         /// </summary>
         /// <remarks>
-        /// POST: api//users/register
+        /// POST: api/users/register
         /// This endpoint is open to anonymous users.
         /// </remarks>
         /// <param name="registerUser">The user registration details.</param>
