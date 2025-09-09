@@ -8,7 +8,7 @@ namespace Client.Web.Blazor.Services.Contracts
         HubConnection GetOrCreateConnection(TokenResponseDto dto, string hubUrl);
         HubConnection? GetConnection(string sessionId);
         bool IsConnected(string sessionId);
-        Task<bool> StopConnectionAsync(string sessionId);    
-        Task<bool> RemoveConnectionAsync(string sessionId);
+        Task<bool> StopConnectionAsync(string sessionId, CancellationToken ct);    
+        Task<bool> RemoveConnectionAsync(string sessionId, CancellationToken ct);
     }
 }

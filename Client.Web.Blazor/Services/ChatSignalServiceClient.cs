@@ -96,13 +96,13 @@ namespace Client.Web.Blazor.Services
         public async Task<bool> StopAsync(string sessionId, CancellationToken ct)
         {
             //_logger.LogInformation("> ChatSignalServiceClient.StopAsync: Stopping SignalR hub connection...");
-            return await _connectionManager.StopConnectionAsync(sessionId);
+            return await _connectionManager.StopConnectionAsync(sessionId, ct);
         }
 
-        public async Task DisposeAsync(string sessionId)
+        public async Task<bool> DisposeAsync(string sessionId, CancellationToken ct)
         {
             //_logger.LogInformation("> ChatSignalServiceClient.DisposeAsync: Disposing SignalR hub connection...");
-            await _connectionManager.RemoveConnectionAsync(sessionId);
+            return await _connectionManager.RemoveConnectionAsync(sessionId, ct);
         }
     }
 }

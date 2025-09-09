@@ -213,6 +213,12 @@
         await TryAsync(ct => ChatService.StopAsync(sessionAccessor.SessionId, ct));
         //Console.WriteLine("> ChatService stopped.");
     }
+    private async Task ChatDisposeAsync()
+    {
+        //Console.WriteLine("> Disposing ChatService...");
+        await TryAsync(ct => ChatService.DisposeAsync(sessionAccessor.SessionId, ct));
+        //Console.WriteLine("> ChatService disposed.");
+    }
     private async Task ChatRestart()
     {
         await ChatStopAsync();
@@ -347,6 +353,8 @@
     {
         await IsAuthenticatedAsync();
         await ChatStopAsync();
+        await ChatDisposeAsync();
+
         await Task.Delay(200);
         await SelectMenuItemAsync(MenuItem.Login);
     }

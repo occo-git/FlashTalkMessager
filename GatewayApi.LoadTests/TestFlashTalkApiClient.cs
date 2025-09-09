@@ -137,7 +137,7 @@ namespace GatewayApi.LoadTests
         public async Task<bool> SignalRStopAsync(string sessionId)
         {
             await _signalClient.StopAsync(sessionId, CancellationToken.None);
-            await _signalClient.DisposeAsync(sessionId);
+            await _signalClient.DisposeAsync(sessionId, CancellationToken.None);
             return true;
         }
         #endregion

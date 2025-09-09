@@ -64,7 +64,7 @@ namespace Client.Web.Blazor.Services
             return false;
         }
 
-        public async Task<bool> StopConnectionAsync(string sessionId)
+        public async Task<bool> StopConnectionAsync(string sessionId, CancellationToken ct)
         {
             if (_connections.TryGetValue(sessionId, out var connection))
             {
@@ -75,14 +75,14 @@ namespace Client.Web.Blazor.Services
             return false;
         }
 
-        public async Task<bool> RemoveConnectionAsync(string sessionId)
+        public async Task<bool> RemoveConnectionAsync(string sessionId, CancellationToken ct)
         {
             if (_connections.TryGetValue(sessionId, out var connection))
             {
                 try
                 {
                     if (connection.State != HubConnectionState.Disconnected)
-                        await connection.StopAsync();
+                        await connection.StopAsync(ct);
 
                     await connection.DisposeAsync();
                     _connections.TryRemove(sessionId, out var _); // discard the out parameter
