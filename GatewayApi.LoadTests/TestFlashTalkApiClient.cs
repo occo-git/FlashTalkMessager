@@ -18,13 +18,13 @@ using System.Threading.Tasks;
 
 namespace GatewayApi.LoadTests
 {
-    public class FlashTalkApiClient
+    public class TestFlashTalkApiClient
     {
         private readonly FlashTalkApiSettings _settings;
         private readonly HttpClient _httpClient; 
         private readonly ChatSignalServiceClient _signalClient;
 
-        public FlashTalkApiClient(FlashTalkApiSettings settings)
+        public TestFlashTalkApiClient(FlashTalkApiSettings settings)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             if (string.IsNullOrEmpty(_settings.ApiBaseUrl))
@@ -33,8 +33,10 @@ namespace GatewayApi.LoadTests
             if (string.IsNullOrEmpty(settings.SignalRHubUrl))
                 throw new ArgumentNullException(nameof(settings.SignalRHubUrl), "SignalRHubUrl cannot be null or empty.");
 
-            var connectionManager = new ConnectionManager();
             _httpClient = new HttpClient { BaseAddress = new Uri(_settings.ApiBaseUrl) };
+
+            var signalROptions = Options.Create(new SignalROptions());
+            var connectionManager = new ConnectionManager(signalROptions);
             var apiSettings = Options.Create(new ApiSettings { ApiBaseUrl = settings.ApiBaseUrl, SignalRHubUrl = settings.SignalRHubUrl });
             var logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ChatSignalServiceClient>();
             _signalClient = new ChatSignalServiceClient(connectionManager, apiSettings, logger);
@@ -134,7 +136,9 @@ namespace GatewayApi.LoadTests
 
         public async Task<bool> SignalRStopAsync(string sessionId)
         {
-            return await _signalClient.StopAsync(sessionId, CancellationToken.None);
+            await _signalClient.StopAsync(sessionId, CancellationToken.None);
+            await _signalClient.DisposeAsync(sessionId);
+            return true;
         }
         #endregion
 

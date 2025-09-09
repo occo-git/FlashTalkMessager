@@ -28,7 +28,7 @@ namespace GatewayApi.LoadTests.Tests
 
         public async Task RunUserTestAsync(string userName, string password)
         {
-            var client = new FlashTalkApiClient(_apiSettings);
+            var client = new TestFlashTalkApiClient(_apiSettings);
             var healthCheckResult = await client.CheckHealthAsync();
             if (!healthCheckResult)
             {

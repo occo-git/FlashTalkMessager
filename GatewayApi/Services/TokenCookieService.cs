@@ -10,7 +10,6 @@ namespace GatewayApi.Services
     {
         private readonly AccessTokenOptions _ato;
         private readonly RefreshTokenOptions _rto;
-        private readonly ApiSettings _apiSettings;
         private readonly ILogger<TokenCookieService> _logger;
 
         public TokenCookieService( 
@@ -28,7 +27,6 @@ namespace GatewayApi.Services
 
             _ato = accessTokenOptions.Value;
             _rto = refreshTokenOptions.Value;
-            _apiSettings = apiSettings.Value;
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 

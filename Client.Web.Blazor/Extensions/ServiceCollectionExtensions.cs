@@ -12,6 +12,7 @@ namespace Client.Web.Blazor.Extensions
         public static void AddOptions(this IServiceCollection services, IConfiguration configuration)
         {
             services.Configure<ApiSettings>(configuration.GetSection(ApiConstants.ApiSettings));
+            services.Configure<SignalROptions>(configuration.GetSection(ApiConstants.SignalROptions));
         }
 
         public static void AddHttpServices(this IServiceCollection services, IConfiguration configuration)

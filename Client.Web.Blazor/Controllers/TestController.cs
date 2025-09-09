@@ -72,9 +72,10 @@ namespace Client.Web.Blazor.Controllers
         public async Task<IActionResult> StopAsync([FromBody] string sessionId, CancellationToken ct)
         {
             //_logger.LogInformation("+++ Stopping SignalR connection for sessionId = {sessionId}", sessionId);
-            var result = await _chatSignalServiceClient.StopAsync(sessionId, ct);
+            await _chatSignalServiceClient.StopAsync(sessionId, ct);
+            await _chatSignalServiceClient.DisposeAsync(sessionId);
             //_logger.LogInformation($"+++ SignalR sessionId = {sessionId} is stopped.");
-            return Ok($"SignalR sessionId = {sessionId} is stopped");
+            return Ok($"SignalR sessionId = {sessionId} is stopped and disposed");
         }
     }
 }
