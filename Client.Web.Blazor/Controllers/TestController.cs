@@ -29,16 +29,16 @@ namespace Client.Web.Blazor.Controllers
         [HttpPost("start")]
         public async Task<IActionResult> StartAsync([FromBody] TokenResponseDto dto, CancellationToken ct)
         {
-            _logger.LogInformation($"+++ Starting SignalR connection for sessionId = {dto.SessionId}");
+            //_logger.LogInformation($"+++ Starting SignalR connection for sessionId = {dto.SessionId}");
             var result = await _chatSignalServiceClient.StartAsync(dto, ct);
             if (result)
             {
-                _logger.LogInformation($"+++ SignalR sessionId = {dto.SessionId} connected successfully.");
+                //_logger.LogInformation($"+++ SignalR sessionId = {dto.SessionId} connected successfully.");
                 return Ok($"SignalR sessionId = {dto.SessionId} connected successfully");
             }
             else
             {
-                _logger.LogInformation($"+++ Failed to start SignalR sessionId = {dto.SessionId}.");
+                //_logger.LogInformation($"+++ Failed to start SignalR sessionId = {dto.SessionId}.");
                 return BadRequest($"Failed to start SignalR sessionId = {dto.SessionId}");
             }
         }
@@ -46,10 +46,10 @@ namespace Client.Web.Blazor.Controllers
         [HttpPost("is-connected")]
         public IActionResult IsConnected([FromBody] string sessionId, CancellationToken ct)
         {
-            _logger.LogInformation($"+++ Checking if SignalR sessionId = {sessionId} is connected");
+            //_logger.LogInformation($"+++ Checking if SignalR sessionId = {sessionId} is connected");
             var result = _chatSignalServiceClient.IsConnected(sessionId);
 
-            _logger.LogInformation($"+++ SignalR sessionId = {sessionId} is connected = {result}");
+            //_logger.LogInformation($"+++ SignalR sessionId = {sessionId} is connected = {result}");
             return Ok($"SignalR sessionId = {sessionId} is connected = {result}");
         }
 
@@ -58,7 +58,7 @@ namespace Client.Web.Blazor.Controllers
         {
             try
             {
-                Console.WriteLine($"Sending message '{message.Content}', sessionId = {message.SessionId} to ChatId: {message.ChatId}");
+                //_logger.LogInformation($"+++ Sending message '{message.Content}', sessionId = {message.SessionId} to ChatId: {message.ChatId}");
                 var success = await _chatSignalServiceClient.SendMessageAsync(message, ct);
                 return Ok(new { Success = success });
             }
@@ -71,9 +71,9 @@ namespace Client.Web.Blazor.Controllers
         [HttpPost("stop")]
         public async Task<IActionResult> StopAsync([FromBody] string sessionId, CancellationToken ct)
         {
-            _logger.LogInformation("+++ Stopping SignalR connection for sessionId = {sessionId}", sessionId);
+            //_logger.LogInformation("+++ Stopping SignalR connection for sessionId = {sessionId}", sessionId);
             var result = await _chatSignalServiceClient.StopAsync(sessionId, ct);
-            _logger.LogInformation($"+++ SignalR sessionId = {sessionId} is stopped.");
+            //_logger.LogInformation($"+++ SignalR sessionId = {sessionId} is stopped.");
             return Ok($"SignalR sessionId = {sessionId} is stopped");
         }
     }

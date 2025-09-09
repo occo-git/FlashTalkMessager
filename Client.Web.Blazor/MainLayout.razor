@@ -323,7 +323,7 @@
     {
         this.tokenResponseDto = tokenResponseDto;
         await IsAuthenticatedAsync();
-        await Task.Delay(1000);
+        await Task.Delay(200);
         await SelectMenuItemAsync(MenuItem.Profile);
     }
 
@@ -334,7 +334,7 @@
 
     async Task OnRegisterSuccess()
     {
-        await Task.Delay(1000);
+        await Task.Delay(200);
         await SelectMenuItemAsync(MenuItem.Login);
     }
 
@@ -347,7 +347,7 @@
     {
         await IsAuthenticatedAsync();
         await ChatStopAsync();
-        await Task.Delay(1000);
+        await Task.Delay(200);
         await SelectMenuItemAsync(MenuItem.Login);
     }
 

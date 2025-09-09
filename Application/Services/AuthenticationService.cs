@@ -2,6 +2,7 @@
 using Application.Extentions;
 using Application.Mapping;
 using Application.Services.Contracts;
+using Application.Services.Tokens;
 using Domain.Models;
 using FluentValidation;
 using Infrastructure.Data;
@@ -28,20 +29,17 @@ namespace Application.Services
         private readonly IRefreshTokenRepository _refreshTokenRepository;
         private readonly IValidator<LoginUserDto> _loginValidator;
         private readonly SymmetricSecurityKey _sKey;
-        private readonly int _accessTokenExpirationMinutes = 15;
-        private readonly int _accessTokenMinutesBeforeExpiration = 3;
-        private readonly int _refreshTokenExpirationDays = 7;
+        private readonly ITokenGenerator<string> _accessTokenGenerator;
+        private readonly ITokenGenerator<RefreshToken> _refreshTokenGenerator;
         private readonly ILogger<AuthenticationService> _logger;
-
-        public int AccessTokenMinutesBeforeExpiration => _accessTokenMinutesBeforeExpiration;
 
         public AuthenticationService(
             IDbContextFactory<DataContext> dbContextFactory,
             IRefreshTokenRepository refreshTokenRepository,
             IValidator<LoginUserDto> loginValidator,
             SymmetricSecurityKey sKey,
-            IOptions<AccessTokenOptions> accessTokenOptions,
-            IOptions<RefreshTokenOptions> refreshTokenOptions,
+            ITokenGenerator<string> accessTokenGenerator,
+            ITokenGenerator<RefreshToken> refreshTokenGenerator,
             ILogger<AuthenticationService> logger)
         {
             _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
@@ -51,14 +49,8 @@ namespace Application.Services
             _sKey = sKey ?? throw new ArgumentNullException(nameof(sKey));
             //Console.WriteLine($"======== AuthenticationService.key = {_sKey}");
 
-            if (accessTokenOptions == null || accessTokenOptions.Value == null)
-                throw new ArgumentNullException(nameof(accessTokenOptions));
-            _accessTokenExpirationMinutes = accessTokenOptions.Value.ExpiresMinutes;
-            _accessTokenMinutesBeforeExpiration = accessTokenOptions.Value.MinutesBeforeExpiration;
-
-            if (refreshTokenOptions == null || refreshTokenOptions.Value == null)
-                throw new ArgumentNullException(nameof(refreshTokenOptions));
-            _refreshTokenExpirationDays = refreshTokenOptions.Value.ExpiresDays;
+            _accessTokenGenerator = accessTokenGenerator ?? throw new ArgumentNullException(nameof(accessTokenGenerator));
+            _refreshTokenGenerator = refreshTokenGenerator ?? throw new ArgumentNullException(nameof(refreshTokenGenerator));
 
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -104,8 +96,8 @@ namespace Application.Services
         {
             _logger.LogInformation("Generating tokens for user: {UserId}", user.Id);
 
-            var newRefreshToken = GenerateRefreshToken(user, sessionId);
-            var newAccessToken = GenerateAccessToken(user, sessionId);
+            var newRefreshToken = _refreshTokenGenerator.GenerateToken(user, sessionId);
+            var newAccessToken = _accessTokenGenerator.GenerateToken(user, sessionId);
 
             await _refreshTokenRepository.AddRefreshTokenAsync(newRefreshToken, ct);
 
@@ -118,8 +110,8 @@ namespace Application.Services
         {
             _logger.LogInformation("Refreshing tokens for user: {UserId}", user.Id);
 
-            var newRefreshToken = GenerateRefreshToken(user, sessionId);
-            var newAccessToken = GenerateAccessToken(user, sessionId);
+            var newRefreshToken = _refreshTokenGenerator.GenerateToken(user, sessionId);
+            var newAccessToken = _accessTokenGenerator.GenerateToken(user, sessionId);
 
             await _refreshTokenRepository.UpdateRefreshTokenAsync(oldRefreshToken, newRefreshToken, ct);
 
@@ -129,83 +121,5 @@ namespace Application.Services
                 newRefreshToken.SessionId);
         }
         #endregion
-
-        private string GenerateAccessToken(User user, string sessionId)
-        {
-            var tokenType = TokenType.Access;
-            var expires = GetExpires(tokenType);
-            var claims = GetClaims(user, tokenType, expires, sessionId);
-
-            Console.WriteLine($"======== Generating Access Token with claims {DateTime.UtcNow}:");
-            foreach (var claim in claims)
-                Console.WriteLine($" → {claim.Type} = {claim.Value}");
-
-            // Configure JWT;
-            var creds = new SigningCredentials(_sKey, SecurityAlgorithms.HmacSha256);
-
-            var jwt = new JwtSecurityToken(
-                issuer: null,
-                audience: null,
-                claims: claims,
-                expires: expires,
-                signingCredentials: creds
-            );
-
-            return new JwtSecurityTokenHandler().WriteToken(jwt);
-        }
-        private RefreshToken GenerateRefreshToken(User user, string sessionId)
-        {
-            var tokenType = TokenType.Refresh;
-            var expires = GetExpires(tokenType);
-            var claims = GetClaims(user, tokenType, expires, sessionId);
-
-            // Configure JWT
-            var creds = new SigningCredentials(_sKey, SecurityAlgorithms.HmacSha256);
-
-            var token = new JwtSecurityToken(
-                issuer: null,
-                audience: null,
-                claims: claims,
-                expires: expires,
-                signingCredentials: creds
-            );
-
-            var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
-
-            return new RefreshToken(jwtToken, user.Id, expires, sessionId);
-        }
-
-        private Claim[] GetClaims(User user, TokenType tokenType, DateTime expires, string sessionId)
-        {
-            if (string.IsNullOrWhiteSpace(user.Username))
-                throw new Exception("User's data is incomplete");
-
-            // no sensitive data
-            return new[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Expiration, expires.ToString("o")), // ISO 8601 format
-                new Claim(ClaimAdditionalTypes.Type, tokenType.ToString()),
-                new Claim(ClaimAdditionalTypes.SessionId, sessionId),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // Unique identifier for the token to make it non-replayable
-            };
-        }
-
-        private enum TokenType
-        {
-            Access,
-            Refresh
-        }
-
-        private DateTime GetExpires(TokenType tokenType)
-        {
-            return tokenType switch
-            {
-                TokenType.Access => DateTime.UtcNow.AddMinutes(_accessTokenExpirationMinutes),
-                TokenType.Refresh => DateTime.UtcNow.AddDays(_refreshTokenExpirationDays),
-                _ => throw new ArgumentOutOfRangeException(nameof(tokenType), "Invalid token type")
-            };
-        }
     }
 }
