@@ -43,7 +43,7 @@ namespace Client.Web.Blazor.Services
                 //_logger.LogInformation($"> ChatSignalServiceClient.StartAsync: Hub connection state: {state}");
                 if (state == HubConnectionState.Connected || state == HubConnectionState.Connecting)
                 {
-                    //_logger.LogInformation("> ChatSignalServiceClient: SignalR connection is already started or starting.");
+                    _logger.LogInformation($"> ChatSignalServiceClient: SignalR ConnectionId = {_hubConnection.ConnectionId}, SessionId = {dto.SessionId} is already started or starting.");
                     return true;
                 }
                 else if (state == HubConnectionState.Disconnected)
@@ -54,10 +54,10 @@ namespace Client.Web.Blazor.Services
                         //_logger.LogInformation($"> ChatSignalServiceClient.On.ReceiveMessage: {message.Content}");
                         OnMessageReceivedAsync?.Invoke(message);
                     });
-                    //_logger.LogInformation("> ChatSignalServiceClient.StartAsync: Starting SignalR hub connection...");
-                    await _hubConnection.StartAsync(ct);            
+                    _logger.LogInformation($"> ChatSignalServiceClient.StartAsync: Starting SignalR hub ConnectionId = {_hubConnection.ConnectionId}, SessionId = {dto.SessionId} ...");
+                    await _hubConnection.StartAsync(ct);
 
-                    //_logger.LogInformation($"> ChatSignalServiceClient.StartAsync: Hub connection state: {_hubConnection.State}");
+                    _logger.LogInformation($"> ChatSignalServiceClient.StartAsync: Hub ConnectionId = {_hubConnection.ConnectionId}, State = {_hubConnection.State}, SessionId = {dto.SessionId}");
                     return _hubConnection.State == HubConnectionState.Connected;
                 }
             }
@@ -77,16 +77,20 @@ namespace Client.Web.Blazor.Services
 
             var _hubConnection = _connectionManager.GetConnection(message.SessionId);
             if (_hubConnection == null)
+            {
+                _logger.LogWarning($"> ChatSignalServiceClient.SendMessageAsync: Hub connection not found SessionId = {message.SessionId}");
                 throw new InvalidOperationException("Hub connection is not started. Call StartAsync first.");
+            }
 
             if (_hubConnection.State == HubConnectionState.Connected)
             {
+                _logger.LogInformation($"> ChatSignalServiceClient.SendMessageAsync: Sending message '{message.Content}', SessionId = {message.SessionId} to ChatId: {message.ChatId}");
                 await _hubConnection.InvokeAsync(ApiConstants.ChatHubSendMessage, message, ct);
                 return true;
             }
             else if (_hubConnection.State == HubConnectionState.Connecting)
             {
-                //_logger.LogInformation("> ChatSignalServiceClient.SendMessageAsync: SignalR connection is still connecting. Please wait.");
+                _logger.LogInformation($"> ChatSignalServiceClient.SendMessageAsync: SignalR connection is still connecting SessionId = {message.SessionId}");
                 return false;
             }
 
@@ -95,13 +99,13 @@ namespace Client.Web.Blazor.Services
 
         public async Task<bool> StopAsync(string sessionId, CancellationToken ct)
         {
-            //_logger.LogInformation("> ChatSignalServiceClient.StopAsync: Stopping SignalR hub connection...");
+            _logger.LogInformation($"> ChatSignalServiceClient.StopAsync: Stopping SignalR hub connection SessionId = {sessionId}...");
             return await _connectionManager.StopConnectionAsync(sessionId, ct);
         }
 
         public async Task<bool> DisposeAsync(string sessionId, CancellationToken ct)
         {
-            //_logger.LogInformation("> ChatSignalServiceClient.DisposeAsync: Disposing SignalR hub connection...");
+            _logger.LogInformation($"> ChatSignalServiceClient.DisposeAsync: Disposing SignalR hub connection SessionId = {sessionId}...");
             return await _connectionManager.RemoveConnectionAsync(sessionId, ct);
         }
     }

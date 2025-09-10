@@ -58,7 +58,7 @@ namespace Client.Web.Blazor.Controllers
         {
             try
             {
-                //_logger.LogInformation($"+++ Sending message '{message.Content}', sessionId = {message.SessionId} to ChatId: {message.ChatId}");
+                _logger.LogInformation($"+++ Sending message '{message.Content}', sessionId = {message.SessionId} to ChatId: {message.ChatId}");
                 var success = await _chatSignalServiceClient.SendMessageAsync(message, ct);
                 return Ok(new { Success = success });
             }
