@@ -36,10 +36,11 @@ namespace GatewayApi.LoadTests
             _httpClient = new HttpClient { BaseAddress = new Uri(_settings.ApiBaseUrl) };
 
             var signalROptions = Options.Create(new SignalROptions());
-            var connectionManager = new ConnectionManager(signalROptions);
+            var logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ConnectionManager>();
+            var connectionManager = new ConnectionManager(signalROptions, logger);
             var apiSettings = Options.Create(new ApiSettings { ApiBaseUrl = settings.ApiBaseUrl, SignalRHubUrl = settings.SignalRHubUrl });
-            var logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ChatSignalServiceClient>();
-            _signalClient = new ChatSignalServiceClient(connectionManager, apiSettings, logger);
+            var chatLogger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<ChatSignalServiceClient>();
+            _signalClient = new ChatSignalServiceClient(connectionManager, apiSettings, chatLogger);
         }
 
         public async Task<bool> CheckHealthAsync()

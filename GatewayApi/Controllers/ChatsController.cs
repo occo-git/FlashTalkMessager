@@ -59,16 +59,16 @@ namespace GatewayApi.Controllers
                             ReceiverId = otherUser.Id
                         });
                     }
-                    else
-                    {
-                        result.Add(new ChatInfoDto
-                        {
-                            Id = Guid.NewGuid(),
-                            Name = $"{userInfo.Username} + {otherUser.Username}",
-                            ReceiverId = otherUser.Id,
-                            IsNew = true,
-                        });
-                    }
+                    //else
+                    //{
+                    //    result.Add(new ChatInfoDto
+                    //    {
+                    //        Id = Guid.NewGuid(),
+                    //        Name = $"{userInfo.Username} + {otherUser.Username}",
+                    //        ReceiverId = otherUser.Id,
+                    //        IsNew = true,
+                    //    });
+                    //}
                 }
 
                 return result;
