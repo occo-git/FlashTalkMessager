@@ -51,7 +51,6 @@ services:
       timeout: 1s
       retries: 5
 
-
   flashtalk_api_1:
     image: gatewayapi
     build:
